@@ -859,9 +859,16 @@ class Normalize:
                                   mask=mask)
             # ma division is very slow; we can take a shortcut
             resdat = result.data
+       
+            # guard against Infs.  Just set them to zero; this will cause visual artifacts, but that's
+            # better than a stack trace in the case that the numpy error flags are set up to raise them.
+            resdat[np.isinf(resdat)] = 0.0
+
             resdat -= vmin
             resdat /= (vmax - vmin)
             result = np.ma.array(resdat, mask=result.mask, copy=False)
+
+            
         if is_scalar:
             result = result[0]
         return result
