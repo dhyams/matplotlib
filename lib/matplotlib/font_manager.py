@@ -951,20 +951,22 @@ class FontManager:
     # Increment this version number whenever the font cache data
     # format or behavior has changed and requires a existing font
     # cache files to be rebuilt.
-    __version__ = 7
+    __version__ = 8
 
-    def __init__(self, size=None, weight='normal'):
+    def __init__(self, size=None, weight='normal',fullbuild=False):
         self._version = self.__version__
 
         self.__default_weight = weight
         self.default_size = size
+        self.fullbuild = fullbuild
 
         paths = [os.path.join(rcParams['datapath'], 'fonts', 'ttf'),
                  os.path.join(rcParams['datapath'], 'fonts', 'afm'),
                  os.path.join(rcParams['datapath'], 'fonts', 'pdfcorefonts')]
 
         #  Create list of font paths
-        for pathname in ['TTFPATH', 'AFMPATH']:
+        if fullbuild:
+          for pathname in ['TTFPATH', 'AFMPATH']:
             if pathname in os.environ:
                 ttfpath = os.environ[pathname]
                 if ttfpath.find(';') >= 0: #win32 style
@@ -977,7 +979,10 @@ class FontManager:
         verbose.report('font search path %s'%(str(paths)))
         #  Load TrueType fonts and create font dictionary.
 
-        self.ttffiles = findSystemFonts(paths) + findSystemFonts()
+        self.ttffiles = findSystemFonts(paths)
+        if fullbuild:
+             self.ttffiles += findSystemFonts()
+
         self.defaultFamily = {
             'ttf': 'Bitstream Vera Sans',
             'afm': 'Helvetica'}
@@ -994,8 +999,10 @@ class FontManager:
 
         self.ttflist = createFontList(self.ttffiles)
 
-        self.afmfiles = findSystemFonts(paths, fontext='afm') + \
+        self.afmfiles = findSystemFonts(paths, fontext='afm') 
+        if fullbuild:
             findSystemFonts(fontext='afm')
+
         self.afmlist = createFontList(self.afmfiles, fontext='afm')
         self.defaultFont['afm'] = None
 
@@ -1235,9 +1242,10 @@ class FontManager:
 
         if not os.path.isfile(result):
             if rebuild_if_missing:
+                # DGH what to do about this?  What if it rebuilds in the middle of a threaded build?
                 verbose.report(
                     'findfont: Found a missing font file.  Rebuilding cache.')
-                _rebuild()
+                _rebuild(fullbuild=True)
                 return fontManager.findfont(
                     prop, fontext, directory, True, False)
             else:
@@ -1270,11 +1278,19 @@ fontManager = None
 
 _fmcache = os.path.join(get_configdir(), 'fontList.cache')
 
-def _rebuild():
+def _rebuild(fullbuild=False):
     global fontManager
-    fontManager = FontManager()
-    pickle_dump(fontManager, _fmcache)
+    #
+    #fontManager = FontManager()
+    #pickle_dump(fontManager, _fmcache)
+    #verbose.report("generated new fontManager")
+    #
+    #
+    # the following code supports the delayed rebuild.
+    localfontManager = FontManager(fullbuild=fullbuild) 
+    pickle_dump(localfontManager, _fmcache)   # dump the local one
     verbose.report("generated new fontManager")
+    fontManager = localfontManager   
 
 # The experimental fontconfig-based backend.
 if USE_FONTCONFIG and sys.platform != 'win32':
@@ -1317,7 +1333,7 @@ else:
         fontManager = pickle_load(_fmcache)
         if (not hasattr(fontManager, '_version') or
             fontManager._version != FontManager.__version__):
-            _rebuild()
+            _rebuild(fullbuild=False) # if the file is missing, just build a minimal cache.
         else:
             fontManager.default_size = None
             verbose.report("Using fontManager instance from %s" % _fmcache)
