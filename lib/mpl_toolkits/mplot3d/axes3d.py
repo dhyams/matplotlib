@@ -1060,8 +1060,16 @@ class Axes3D(Axes):
             self.button_pressed = event.button
             self.sx, self.sy = event.xdata, event.ydata
 
+            # DGH PATCH.  Notify the axes object then the button press is fielded.
+            if hasattr(self,'MouseInteract3D'):
+                self.MouseInteract3D(event,action="press")
+
     def _button_release(self, event):
         self.button_pressed = None
+
+        # DGH PATCH.  Notify the axes object then the button press is fielded.
+        if hasattr(self,'MouseInteract3D'):
+             self.MouseInteract3D(event,action="release")
 
     def format_zdata(self, z):
         """
@@ -1149,6 +1157,10 @@ class Axes3D(Axes):
             self.get_proj()
             self.figure.canvas.draw_idle()
 
+            # DGH PATCH
+            if hasattr(self,'MouseInteract3D'):
+                self.MouseInteract3D(event,action="rotate")
+
 #        elif self.button_pressed == 2:
             # pan view
             # project xv,yv,zv -> xw,yw,zw
@@ -1169,6 +1181,10 @@ class Axes3D(Axes):
             self.set_zlim3d(minz - dz, maxz + dz)
             self.get_proj()
             self.figure.canvas.draw_idle()
+
+            # DGH PATCH.  Notify the axes object then the button press is fielded.
+            if hasattr(self,'MouseInteract3D'):
+                self.MouseInteract3D(event,action="zoom")
 
     def set_zlabel(self, zlabel, fontdict=None, labelpad=None, **kwargs):
         '''
