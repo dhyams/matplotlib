@@ -245,13 +245,18 @@ class Artist(object):
             if hascursor:
                 L.append(self)
         except:
-            import traceback
-            traceback.print_exc()
-            print "while checking",self.__class__
+            #import traceback
+            #traceback.print_exc()
+            #print "while checking",self.__class__
+            pass
 
 
         for a in self.get_children():
-            L.extend(a.hitlist(event))
+            try:
+               L.extend(a.hitlist(event))
+            except:
+               pass
+
         return L
 
     def get_children(self):
