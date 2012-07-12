@@ -2782,6 +2782,7 @@ class NavigationToolbar2(object):
 
                 self._lastCursor = cursors.MOVE
 
+        return
         if event.inaxes and event.inaxes.get_navigate():
 
             try:
