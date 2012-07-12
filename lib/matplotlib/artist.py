@@ -311,7 +311,8 @@ class Artist(object):
         the artist and the artist has picker set
         """
         # Pick self
-        if self.pickable():
+        try:
+          if self.pickable():
             picker = self.get_picker()
             if callable(picker):
                 inside,prop = picker(self,mouseevent)
@@ -319,17 +320,22 @@ class Artist(object):
                 inside,prop = self.contains(mouseevent)
             if inside:
                 self.figure.canvas.pick_event(mouseevent, self, **prop)
+        except:
+           pass
 
         # Pick children
         for a in self.get_children():
             # make sure the event happened in the same axes
-            ax = getattr(a, 'axes', None)
-            if mouseevent.inaxes is None or mouseevent.inaxes==ax:
+            try:
+              ax = getattr(a, 'axes', None)
+              if mouseevent.inaxes is None or mouseevent.inaxes==ax:
                 # we need to check if mouseevent.inaxes is None
                 # because some objects associated with an axes (eg a
                 # tick label) can be outside the bounding box of the
                 # axes and inaxes will be None
                 a.pick(mouseevent)
+            except:
+              pass
 
     def set_picker(self, picker):
         """
