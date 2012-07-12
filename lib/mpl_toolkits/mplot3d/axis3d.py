@@ -218,6 +218,9 @@ class Axis(maxis.XAxis):
         # Rudimentary clipping
         majorLocs = [loc for loc in majorLocs if
                      locmin <= loc <= locmax]
+
+        if not majorLocs: majorLocs = self.major.locator() # if no majorlocs, undo the filtering. 
+
         self.major.formatter.set_locs(majorLocs)
         majorLabels = [self.major.formatter(val, i)
                        for i, val in enumerate(majorLocs)]
