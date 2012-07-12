@@ -45,7 +45,7 @@ import warnings
 
 from hashlib import md5
 
-import distutils.version
+#import distutils.version
 import numpy as np
 import matplotlib as mpl
 from matplotlib import rcParams

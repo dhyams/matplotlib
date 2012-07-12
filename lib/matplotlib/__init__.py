@@ -100,7 +100,7 @@ to MATLAB&reg;, a registered trademark of The MathWorks, Inc.
 from __future__ import print_function, absolute_import
 
 import sys
-import distutils.version
+#import distutils.version
 
 __version__  = '1.3.1'
 __version__numpy__ = '1.5' # minimum required numpy version
@@ -149,7 +149,7 @@ else:
         pyparsing.Forward.__ilshift__ = _forward_ilshift
 
 import os, re, shutil, warnings
-import distutils.sysconfig
+#import distutils.sysconfig
 
 # cbook must import matplotlib only within function
 # definitions, so it is safe to import from it here.
@@ -965,8 +965,8 @@ rcParamsOrig = rcParams.copy()
 rcParamsDefault = RcParams([ (key, default) for key, (default, converter) in \
                     defaultParams.iteritems() ])
 
-rcParams['ps.usedistiller'] = checkdep_ps_distiller(rcParams['ps.usedistiller'])
-rcParams['text.usetex'] = checkdep_usetex(rcParams['text.usetex'])
+rcParams['ps.usedistiller'] = False 
+rcParams['text.usetex'] = False 
 
 if rcParams['axes.formatter.use_locale']:
     import locale
