@@ -103,8 +103,8 @@ __version__  = '1.1.1'
 __version__numpy__ = '1.4' # minimum required numpy version
 
 import os, re, shutil, subprocess, sys, warnings
-import distutils.sysconfig
-import distutils.version
+#import distutils.sysconfig
+#import distutils.version
 
 # Needed for toolkit setuptools support
 if 0:
@@ -790,8 +790,8 @@ rcParamsOrig = rcParams.copy()
 rcParamsDefault = RcParams([ (key, default) for key, (default, converter) in \
                     defaultParams.iteritems() ])
 
-rcParams['ps.usedistiller'] = checkdep_ps_distiller(rcParams['ps.usedistiller'])
-rcParams['text.usetex'] = checkdep_usetex(rcParams['text.usetex'])
+rcParams['ps.usedistiller'] = False 
+rcParams['text.usetex'] = False 
 
 if rcParams['axes.formatter.use_locale']:
     import locale
