@@ -461,14 +461,14 @@ class Axes3D(Axes):
         Note that this function applies to the 3D axes, and as such
         adds the *scalez* to the function arguments.
 
-        .. versionchanged :: 1.1.0
-            Function signature was changed to better match the 2D version.
-            *tight* is now explicitly a kwarg and placed first.
-
         .. versionchanged :: 1.2.1
             This is now fully functional.
 
         """
+        if not self.get_autoscale_on(): 
+           return  
+
+        self.set_top_view()
         if not self._ready:
             return
 
@@ -538,6 +538,14 @@ class Axes3D(Axes):
             if not _tight:
                 z0, z1 = zlocator.view_limits(z0, z1)
             self.set_zbound(z0, z1)
+
+        # Previous version's code
+        #if scalex:
+        #    self.set_xlim3d(self.xy_dataLim.intervalx)
+        #if scaley:
+        #    self.set_ylim3d(self.xy_dataLim.intervaly)
+        #if scalez:
+        #    self.set_zlim3d(self.zz_dataLim.intervalx)
 
     def get_w_lims(self):
         '''Get 3D world limits.'''
