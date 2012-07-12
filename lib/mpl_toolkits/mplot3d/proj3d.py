@@ -150,6 +150,11 @@ def persp_transformation(zfront, zback):
                      ])
 
 def proj_transform_vec(vec, M):
+    # guard against Infs and NaNs.  Bad, but at least will keep program from crashing.  This is a definite side effect, but I 
+    # don't care.
+    vec[np.isinf(vec)] = 0.0
+    vec[np.isnan(vec)] = 0.0
+
     vecw = np.dot(M, vec)
     w = vecw[3]
     # clip here..
