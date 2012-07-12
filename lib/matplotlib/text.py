@@ -1999,7 +1999,10 @@ class Annotation(Text, _AnnotationBase):
         if self.arrow_patch is not None:
             if self.arrow_patch.figure is None and self.figure is not None:
                 self.arrow_patch.figure = self.figure
-            self.arrow_patch.draw(renderer)
+            try:
+              self.arrow_patch.draw(renderer)
+            except Exception as e:
+              pass
 
         Text.draw(self, renderer)
 
