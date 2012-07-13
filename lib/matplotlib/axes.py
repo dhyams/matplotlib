@@ -3673,15 +3673,16 @@ class Axes(martist.Artist):
         self.add_collection(coll)
         coll.update(kwargs)
 
-        minx = min(xmin.min(), xmax.min())
-        maxx = max(xmin.max(), xmax.max())
-        miny = y.min()
-        maxy = y.max()
+        if len(y) > 0:
+            minx = min(xmin.min(), xmax.min())
+            maxx = max(xmin.max(), xmax.max())
+            miny = y.min()
+            maxy = y.max()
 
-        corners = (minx, miny), (maxx, maxy)
+            corners = (minx, miny), (maxx, maxy)
 
-        self.update_datalim(corners)
-        self.autoscale_view()
+            self.update_datalim(corners)
+            self.autoscale_view()
 
 
         return coll
@@ -3751,16 +3752,17 @@ class Axes(martist.Artist):
                                     linestyles=linestyles, label=label)
         self.add_collection(coll)
         coll.update(kwargs)
+      
+        if len(x) > 0:
+            minx = min( x )
+            maxx = max( x )
 
-        minx = min( x )
-        maxx = max( x )
+            miny = min( min(ymin), min(ymax) )
+            maxy = max( max(ymin), max(ymax) )
 
-        miny = min( min(ymin), min(ymax) )
-        maxy = max( max(ymin), max(ymax) )
-
-        corners = (minx, miny), (maxx, maxy)
-        self.update_datalim(corners)
-        self.autoscale_view()
+            corners = (minx, miny), (maxx, maxy)
+            self.update_datalim(corners)
+            self.autoscale_view()
 
         return coll
 
