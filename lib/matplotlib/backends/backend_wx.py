@@ -1270,7 +1270,7 @@ The current aspect ratio will be kept."""
         x = evt.GetX()
         y = self.figure.bbox.height - evt.GetY()
         evt.Skip()
-        self.CaptureMouse()
+        if not self.HasCapture(): self.CaptureMouse()
         FigureCanvasBase.button_press_event(self, x, y, 3, guiEvent=evt)
 
     def _onRightButtonDClick(self, evt):
@@ -1294,7 +1294,7 @@ The current aspect ratio will be kept."""
         x = evt.GetX()
         y = self.figure.bbox.height - evt.GetY()
         evt.Skip()
-        self.CaptureMouse()
+        if not self.HasCapture(): self.CaptureMouse()
         FigureCanvasBase.button_press_event(self, x, y, 1, guiEvent=evt)
 
     def _onLeftButtonDClick(self, evt):
@@ -1320,7 +1320,7 @@ The current aspect ratio will be kept."""
         x = evt.GetX()
         y = self.figure.bbox.height - evt.GetY()
         evt.Skip()
-        self.CaptureMouse()
+        if not self.HasCapture(): self.CaptureMouse()
         FigureCanvasBase.button_press_event(self, x, y, 2, guiEvent=evt)
 
     def _onMiddleButtonDClick(self, evt):
