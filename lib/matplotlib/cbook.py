@@ -257,7 +257,8 @@ class CallbackRegistry:
             for cid, proxy in self.callbacks[s].items():
                 # Clean out dead references
                 if proxy.inst is not None and proxy.inst() is None:
-                    del self.callbacks[s][cid]
+                    if cid in self.callbacks[s]:
+                       del self.callbacks[s][cid]
                 else:
                     proxy(*args, **kwargs)
 
