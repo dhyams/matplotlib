@@ -410,6 +410,9 @@ class Axes3D(Axes):
             it currently does not do anything.
         """
 
+        if not self.get_autoscale_on(): 
+           return  
+
         self.set_top_view()
         if not self._ready:
             return
@@ -453,8 +456,6 @@ class Axes3D(Axes):
             self.set_zbound(z0, z1)
         """
         # Previous version's code
-        if not self.get_autoscale_on():
-            return
         if scalex:
             self.set_xlim3d(self.xy_dataLim.intervalx)
         if scaley:
