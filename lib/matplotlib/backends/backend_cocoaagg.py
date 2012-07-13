@@ -164,6 +164,7 @@ class PlotView(NibClassBuilder.AutoBaseClass):
         self.updatePlot()
 
     def mouseDown_(self, event):
+        dblclick = (event.clickCount() == 2)
         loc = self.convertPoint_fromView_(event.locationInWindow(), None)
         type = event.type()
         if (type == NSLeftMouseDown):
@@ -171,7 +172,7 @@ class PlotView(NibClassBuilder.AutoBaseClass):
         else:
             print >>sys.stderr, 'Unknown mouse event type:', type
             button = -1
-        self.canvas.button_press_event(loc.x, loc.y, button)
+        self.canvas.button_press_event(loc.x, loc.y, button, dblclick=dblclick)
         self.updatePlot()
 
     def mouseDragged_(self, event):
