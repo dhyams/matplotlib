@@ -1236,7 +1236,7 @@ class LocationEvent(Event):
 
         try:
             xdata, ydata = self.inaxes.transData.inverted().transform_point((x, y))
-        except ValueError:
+        except (ValueError,ArithmeticError):
             self.xdata  = None
             self.ydata  = None
         else:
