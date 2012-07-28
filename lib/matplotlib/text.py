@@ -2001,6 +2001,7 @@ class Annotation(Text, _AnnotationBase):
                 self.arrow_patch.figure = self.figure
             self.arrow_patch.draw(renderer)
 
+        Text.draw(self, renderer)
         # DGH HACK!!!!  Draw the shadow.  This causes two draws of the annotation text, but who cares, right?
         # this hack relies on me always setting the Cshadow attribute of an annotation.
         if hasattr(self,'Cshadow') and self.Cshadow:
@@ -2008,7 +2009,7 @@ class Annotation(Text, _AnnotationBase):
             shadow = Shadow(self._bbox_patch,2,-2)
             shadow.draw(renderer)
 
-        Text.draw(self, renderer)
+            Text.draw(self, renderer)
 
 
 
