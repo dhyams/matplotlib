@@ -519,7 +519,7 @@ class Text(Artist):
         if renderer is not None:
             self._renderer = renderer
         if not self.get_visible(): return
-        if self.get_text()=='': return
+        #if self.get_text()=='': return
 
         renderer.open_group('text', self.get_gid())
 
