@@ -168,6 +168,7 @@ class IManager(object):
         # via the register() function below, or directly by the user if they want to make 
         # sure that all handlers are active before any interactive artists are registered.
         if canvas not in IManager.cinfo:
+            #print "REGISTER",IManager,canvas,IManager.cinfo.keys()
             ci =  CanvasInfo()
             ci.cidpress  = canvas.mpl_connect('button_press_event', IManager.onpress)
             ci.cidrelease = canvas.mpl_connect('button_release_event',IManager.onrelease)
@@ -1392,23 +1393,24 @@ class InteractiveArtistMixin(object):
     
     
     
-    
-#
-# class InteractiveRectangle.  
-# This is a reference implementation of a moveable and resizable artist.  
-# 
-# For this example, we will always use axes coordinates.
-#
-# For MEP9, these methods would need to be migrated to matplotlib.patches.Rectangle as real functions.
-#
-class InteractiveRectangle(InteractiveArtistMixin,matplotlib.patches.Rectangle):
+if __name__ == "__main__":    
+ import imanager
+ #
+ # class InteractiveRectangle.  
+ # This is a reference implementation of a moveable and resizable artist.  
+ # 
+ # For this example, we will always use axes coordinates.
+ #
+ # For MEP9, these methods would need to be migrated to matplotlib.patches.Rectangle as real functions.
+ #
+ class InteractiveRectangle(imanager.InteractiveArtistMixin,matplotlib.patches.Rectangle):
     def __init__(self,ax,*args,**kwargs):
         
         matplotlib.patches.Rectangle.__init__(self,*args,transform=ax.transAxes,**kwargs)
     
         ax.add_artist(self)
                
-        InteractiveArtistMixin.__init__(self,resizeable=True,activateable=True)
+        imanager.InteractiveArtistMixin.__init__(self,resizeable=True,activateable=True)
     
     
     def convert_to_pixels(self,xy,to_pixels=True):
@@ -1455,22 +1457,22 @@ class InteractiveRectangle(InteractiveArtistMixin,matplotlib.patches.Rectangle):
         self.set_height(sy-y0)
         
             
-#
-# class InteractiveRectangle.  
-# This is a reference implementation of a moveable and resizable artist.  
-# 
-# For this example, we will always use axes coordinates.
-#
-# For MEP9, these methods would need to be migrated to matplotlib.patches.Rectangle as real functions.
-#
-class InteractiveCircle(InteractiveArtistMixin,matplotlib.patches.Circle):
+ #
+ # class InteractiveRectangle.  
+ # This is a reference implementation of a moveable and resizable artist.  
+ # 
+ # For this example, we will always use axes coordinates.
+ #
+ # For MEP9, these methods would need to be migrated to matplotlib.patches.Rectangle as real functions.
+ #
+ class InteractiveCircle(imanager.InteractiveArtistMixin,matplotlib.patches.Circle):
     def __init__(self,ax,*args,**kwargs):
         
         matplotlib.patches.Circle.__init__(self,*args,transform=matplotlib.transforms.IdentityTransform(),**kwargs)
     
         ax.add_artist(self)
                
-        InteractiveArtistMixin.__init__(self,resizeable=True,activateable=True,fixed_aspect_ratio=True)
+        imanager.InteractiveArtistMixin.__init__(self,resizeable=True,activateable=True,fixed_aspect_ratio=True)
     
     
     def convert_to_pixels(self,xy,to_pixels=True):
@@ -1511,6 +1513,7 @@ if __name__ == "__main__":
     import numpy as np   
     import matplotlib.pyplot as plt 
     import matplotlib.lines
+    import imanager
 
     
     app = wx.PySimpleApp()
@@ -1543,7 +1546,7 @@ if __name__ == "__main__":
     pdict = {}   
     pdict["on_activated"] = on_activated  
     
-    IManager.make_interactive(xax,highlightable=True,moveable=False,protocols=pdict)
+    imanager.IManager.make_interactive(xax,highlightable=True,moveable=False,protocols=pdict)
     #####################################################################################
     
     
@@ -1559,7 +1562,7 @@ if __name__ == "__main__":
     pdict = {}   
     pdict["on_activated"] = on_activated  
     
-    IManager.make_interactive(yax,highlightable=True,moveable=False,protocols=pdict)
+    imanager.IManager.make_interactive(yax,highlightable=True,moveable=False,protocols=pdict)
     #####################################################################################
     
     
@@ -1599,7 +1602,7 @@ if __name__ == "__main__":
              'convert_to_pixels':convert_to_pixels,'get_pixel_position_ll':get_pixel_position_ll,
              'get_pixel_size':get_pixel_size,
              'set_pixel_position_and_size':set_pixel_position_and_size} 
-    IManager.make_interactive(txt,highlightable=True,moveable=True,protocols=pdict,boxexpand=1)
+    imanager.IManager.make_interactive(txt,highlightable=True,moveable=True,protocols=pdict,boxexpand=1)
     #####################################################################################
     
     
@@ -1616,7 +1619,7 @@ if __name__ == "__main__":
     pdict["on_activated"] = on_activated  
     
     for txt in [ax.get_xaxis().label, ax.get_yaxis().label]:
-        IManager.make_interactive(txt,highlightable=True,moveable=False,protocols=pdict)
+        imanager.IManager.make_interactive(txt,highlightable=True,moveable=False,protocols=pdict)
     #####################################################################################
     
     
