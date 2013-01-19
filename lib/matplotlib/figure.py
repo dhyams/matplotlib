@@ -12,30 +12,37 @@ contains all the plot elements.  The following classes are defined
 
 """
 from __future__ import print_function
+import warnings
+from operator import itemgetter
+
 import numpy as np
 
-import artist
-from artist import Artist, allow_rasterization
-from axes import Axes, SubplotBase, subplot_class_factory
-from cbook import flatten, allequal, Stack, iterable, is_string_like
-from matplotlib import _image
-import colorbar as cbar
-from image import FigureImage
 from matplotlib import rcParams
-from patches import Rectangle
-from text import Text, _process_text_args
+from matplotlib import docstring
+from matplotlib import __version__ as _mpl_version
 
-from legend import Legend
-from transforms import Affine2D, Bbox, BboxTransformTo, TransformedBbox
-from projections import get_projection_names, get_projection_class, \
-        process_projection_requirements
-from matplotlib.blocking_input import BlockingMouseInput, BlockingKeyMouseInput
+import matplotlib.artist as martist
+from matplotlib.artist import Artist, allow_rasterization
 
 import matplotlib.cbook as cbook
-from matplotlib import docstring
 
-from operator import itemgetter
-import os.path
+from matplotlib.cbook import Stack, iterable
+
+from matplotlib import _image
+from matplotlib.image import FigureImage
+
+import matplotlib.colorbar as cbar
+
+from matplotlib.axes import Axes, SubplotBase, subplot_class_factory
+from matplotlib.blocking_input import BlockingMouseInput, BlockingKeyMouseInput
+from matplotlib.legend import Legend
+from matplotlib.patches import Rectangle
+from matplotlib.projections import (get_projection_names,
+                                    process_projection_requirements)
+from matplotlib.text import Text, _process_text_args
+from matplotlib.transforms import (Affine2D, Bbox, BboxTransformTo,
+                                    TransformedBbox)
+from matplotlib.backend_bases import NonGuiException
 
 docstring.interpd.update(projection_names = get_projection_names())
 
@@ -110,7 +117,7 @@ class AxesStack(Stack):
         a_existing = self.get(key)
         if a_existing is not None:
             Stack.remove(self, (key, a_existing))
-            warnings.Warn(
+            warnings.warn(
                     "key %s already existed; Axes is being replaced" % key)
             # I don't think the above should ever happen.
 
@@ -137,6 +144,7 @@ class AxesStack(Stack):
 
     def __contains__(self, a):
         return a in self.as_list()
+
 
 class SubplotParams:
     """
@@ -212,8 +220,6 @@ class SubplotParams:
                 reset()
                 raise ValueError('bottom cannot be >= top')
 
-
-
     def _update_this(self, s, val):
         if val is None:
             val = getattr(self, s, None)
@@ -222,6 +228,7 @@ class SubplotParams:
                 val = rcParams[key]
 
         setattr(self, s, val)
+
 
 class Figure(Artist):
 
@@ -240,7 +247,7 @@ class Figure(Artist):
        For multiple figure images, the figure will make composite
        images depending on the renderer option_image_nocomposite
        function.  If suppressComposite is True|False, this will
-       override the renderer
+       override the renderer.
     """
 
     def __str__(self):
@@ -254,6 +261,7 @@ class Figure(Artist):
                  linewidth = 0.0,   # the default linewidth of the frame
                  frameon = True,    # whether or not to draw the figure frame
                  subplotpars = None, # default to rc
+                 tight_layout = None, # default to rc figure.autolayout
                  ):
         """
         *figsize*
@@ -276,6 +284,11 @@ class Figure(Artist):
 
         *subplotpars*
             A :class:`SubplotParams` instance, defaults to rc
+
+        *tight_layout*
+            If *False* use *subplotpars*; if *True* adjust subplot
+            parameters using :meth:`tight_layout`.  Defaults to
+            rc ``figure.autolayout``.
         """
         Artist.__init__(self)
 
@@ -311,10 +324,42 @@ class Figure(Artist):
             subplotpars = SubplotParams()
 
         self.subplotpars = subplotpars
+        self.set_tight_layout(tight_layout)
 
         self._axstack = AxesStack()  # track all figure axes and current axes
         self.clf()
         self._cachedRenderer = None
+
+    def show(self, warn=True):
+        """
+        If using a GUI backend with pyplot, display the figure window.
+
+        If the figure was not created using
+        :func:`~matplotlib.pyplot.figure`, it will lack a
+        :class:`~matplotlib.backend_bases.FigureManagerBase`, and
+        will raise an AttributeError.
+
+        For non-GUI backends, this does nothing, in which case
+        a warning will be issued if *warn* is True (default).
+        """
+        try:
+            manager = getattr(self.canvas, 'manager')
+        except AttributeError as err:
+            raise AttributeError("%s\n    Figure.show works only "
+                        "for figures managed by pyplot,\n    normally "
+                        "created by pyplot.figure()." % err)
+
+        if manager is not None:
+            try:
+                manager.show()
+                return
+            except NonGuiException:
+                pass
+        if warn:
+            import warnings
+            warnings.warn(
+                "matplotlib is currently using a non-GUI backend, "
+                "so cannot show the figure")
 
     def _get_axes(self):
         return self._axstack.as_list()
@@ -328,6 +373,24 @@ class Figure(Artist):
         self.dpi_scale_trans.clear().scale(dpi, dpi)
         self.callbacks.process('dpi_changed', self)
     dpi = property(_get_dpi, _set_dpi)
+
+    def get_tight_layout(self):
+        """
+        Return the Boolean flag, True to use :meth`tight_layout` when drawing.
+        """
+        return self._tight
+
+    def set_tight_layout(self, tight):
+        """
+        Set whether :meth:`tight_layout` is used upon drawing.
+        If None, the rcParams['figure.autolayout'] value will be set.
+
+        ACCEPTS: [True | False | None]
+        """
+        if tight is None:
+            tight = rcParams['figure.autolayout']
+        tight = bool(tight)
+        self._tight = tight
 
     def autofmt_xdate(self, bottom=0.2, rotation=30, ha='right'):
         """
@@ -464,6 +527,8 @@ class Figure(Artist):
                  origin=None,
                  **kwargs):
         """
+        Adds a non-resampled image to the figure.
+
         call signatures::
 
           figimage(X, **kwargs)
@@ -863,6 +928,13 @@ class Figure(Artist):
         if not self.get_visible(): return
         renderer.open_group('figure')
 
+        if self.get_tight_layout() and self.axes:
+            try:
+                self.tight_layout(renderer)
+            except ValueError:
+                pass
+                # ValueError can occur when resizing a window.
+
         if self.frameon: self.patch.draw(renderer)
 
         # a list of (zorder, func_to_call, list_of_args)
@@ -884,7 +956,7 @@ class Figure(Artist):
             not_composite = self.suppressComposite
 
         if len(self.images)<=1 or not_composite or \
-                not allequal([im.origin for im in self.images]):
+                not cbook.allequal([im.origin for im in self.images]):
             for a in self.images:
                 dsu.append( (a.get_zorder(), a, a.draw, [renderer]))
         else:
@@ -1041,6 +1113,8 @@ class Figure(Artist):
     @docstring.dedent_interpd
     def text(self, x, y, s, *args, **kwargs):
         """
+        Add text to figure.
+
         Call signature::
 
           text(x, y, s, fontdict=None, **kwargs)
@@ -1077,12 +1151,8 @@ class Figure(Artist):
         The following kwargs are supported for ensuring the returned axes
         adheres to the given projection etc., and for axes creation if
         the active axes does not exist:
-        %(Axes)s
 
-        .. note::
-            When specifying kwargs to ``gca`` to find the pre-created active
-            axes, they should be equivalent in every way to the kwargs which
-            were used in its creation.
+        %(Axes)s
 
         """
         ckey, cax = self._axstack.current_key_axes()
@@ -1103,12 +1173,18 @@ class Figure(Artist):
                 kwargs_copy = kwargs.copy()
                 projection_class, _, key = \
                         process_projection_requirements(self, **kwargs_copy)
+
+                # let the returned axes have any gridspec by removing it from the key
+                ckey = ckey[1:]
+                key = key[1:]
+
                 # if the cax matches this key then return the axes, otherwise
                 # continue and a new axes will be created
                 if key == ckey and isinstance(cax, projection_class):
                     return cax
 
-        return self.add_subplot(111, **kwargs)
+        # no axes found, so create one which spans the figure
+        return self.add_subplot(1, 1, 1, **kwargs)
 
     def sca(self, a):
         'Set the current axes to be a and return a'
@@ -1127,20 +1203,83 @@ class Figure(Artist):
                 return im
         return None
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # the axobservers cannot currently be pickled.
+        # Additionally, the canvas cannot currently be pickled, but this has
+        # the benefit of meaning that a figure can be detached from one canvas,
+        # and re-attached to another.
+        for attr_to_pop in ('_axobservers', 'show', 'canvas', '_cachedRenderer') :
+            state.pop(attr_to_pop, None)
+
+        # add version information to the state
+        state['__mpl_version__'] = _mpl_version
+
+        # check to see if the figure has a manager and whether it is registered
+        # with pyplot
+        if getattr(self.canvas, 'manager', None) is not None:
+            manager = self.canvas.manager
+            import matplotlib._pylab_helpers
+            if manager in matplotlib._pylab_helpers.Gcf.figs.values():
+                state['_restore_to_pylab'] = True
+
+        return state
+
+    def __setstate__(self, state):
+        version = state.pop('__mpl_version__')
+        restore_to_pylab = state.pop('_restore_to_pylab', False)
+
+        if version != _mpl_version:
+            import warnings
+            warnings.warn("This figure was saved with matplotlib version %s "
+                          "and is unlikely to function correctly." %
+                          (version, ))
+
+        self.__dict__ = state
+
+        # re-initialise some of the unstored state information
+        self._axobservers = []
+        self.canvas = None
+
+        if restore_to_pylab:
+            # lazy import to avoid circularity
+            import matplotlib.pyplot as plt
+            import matplotlib._pylab_helpers as pylab_helpers
+            allnums = plt.get_fignums()
+            num = max(allnums) + 1 if allnums else 1
+            mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)
+
+            # XXX The following is a copy and paste from pyplot. Consider
+            # factoring to pylab_helpers
+
+            if self.get_label():
+                mgr.set_window_title(self.get_label())
+
+            # make this figure current on button press event
+            def make_active(event):
+                pylab_helpers.Gcf.set_active(mgr)
+
+            mgr._cidgcf = mgr.canvas.mpl_connect('button_press_event',
+                                                 make_active)
+
+            pylab_helpers.Gcf.set_active(mgr)
+            self.number = num
+
+            plt.draw_if_interactive()
+
     def add_axobserver(self, func):
         'whenever the axes state change, ``func(self)`` will be called'
         self._axobservers.append(func)
 
-
     def savefig(self, *args, **kwargs):
         """
+        Save the current figure.
+
         Call signature::
 
           savefig(fname, dpi=None, facecolor='w', edgecolor='w',
                   orientation='portrait', papertype=None, format=None,
                   transparent=False, bbox_inches=None, pad_inches=0.1)
-
-        Save the current figure.
 
         The output formats available depend on the backend being used.
 
@@ -1238,7 +1377,7 @@ class Figure(Artist):
         """
         if ax is None:
             ax = self.gca()
-        use_gridspec = kw.pop("use_gridspec", False)
+        use_gridspec = kw.pop("use_gridspec", True)
         if cax is None:
             if use_gridspec and isinstance(ax, SubplotBase):
                 cax, kw = cbar.make_axes_gridspec(ax, **kw)
@@ -1379,17 +1518,24 @@ class Figure(Artist):
             labels) will fit into. Default is (0, 0, 1, 1).
         """
 
-        from tight_layout import get_renderer, get_tight_layout_figure
+        from tight_layout import (get_renderer, get_tight_layout_figure,
+                                  get_subplotspec_list)
+
+        subplotspec_list = get_subplotspec_list(self.axes)
+        if None in subplotspec_list:
+            warnings.warn("This figure includes Axes that are not "
+                          "compatible with tight_layout, so its "
+                          "results might be incorrect.")
 
         if renderer is None:
             renderer = get_renderer(self)
 
-        kwargs = get_tight_layout_figure(self, self.axes, renderer,
+        kwargs = get_tight_layout_figure(self, self.axes, subplotspec_list,
+                                         renderer,
                                          pad=pad, h_pad=h_pad, w_pad=w_pad,
                                          rect=rect)
 
         self.subplots_adjust(**kwargs)
-
 
 
 def figaspect(arg):
@@ -1454,4 +1600,4 @@ def figaspect(arg):
     newsize = np.clip(newsize,figsize_min,figsize_max)
     return newsize
 
-docstring.interpd.update(Figure=artist.kwdoc(Figure))
+docstring.interpd.update(Figure=martist.kwdoc(Figure))

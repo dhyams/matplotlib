@@ -271,7 +271,7 @@ class FigureCanvasGTK3 (Gtk.DrawingArea, FigureCanvasBase):
                     ]
         for key_mask, prefix in modifiers:
             if event.state & key_mask:
-                key = '{}+{}'.format(prefix, key)
+                key = '{0}+{1}'.format(prefix, key)
 
         return key
 
@@ -377,9 +377,6 @@ class FigureManagerGTK3(FigureManagerBase):
         self.vbox.show()
 
         self.canvas.show()
-
-        # attach a show method to the figure  for pylab ease of use
-        self.canvas.figure.show = lambda *args: self.window.show()
 
         self.vbox.pack_start(self.canvas, True, True, 0)
 
@@ -564,7 +561,7 @@ class NavigationToolbar2GTK3(NavigationToolbar2, Gtk.Toolbar):
 
 
         window = Gtk.Window()
-        try: 
+        try:
             window.set_icon_from_file(window_icon)
         except (SystemExit, KeyboardInterrupt):
             # re-raise exit type Exceptions

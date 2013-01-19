@@ -2,6 +2,13 @@ from __future__ import division, print_function
 import math
 import os
 import sys
+import warnings
+
+from matplotlib import MatplotlibDeprecationWarning as mplDeprecation
+
+warnings.warn("QT3-based backends are deprecated and will be removed after"
+              " the v1.2.x release. Use the equivalent QT4 backend instead.",
+              mplDeprecation)
 
 import matplotlib
 from matplotlib import verbose
@@ -18,7 +25,9 @@ from matplotlib.widgets import SubplotTool
 try:
     import qt
 except ImportError:
-    raise ImportError("Qt backend requires pyqt to be installed.")
+    raise ImportError("Qt backend requires pyqt to be installed."
+                      " NOTE: QT3-based backends will not work in"
+                      " Python 3.")
 
 backend_version = "0.9.1"
 def fn_name(): return sys._getframe(1).f_code.co_name
@@ -69,9 +78,16 @@ def new_figure_manager( num, *args, **kwargs ):
     Create a new figure manager instance
     """
     FigureClass = kwargs.pop('FigureClass', Figure)
-    thisFig = FigureClass( *args, **kwargs )
-    canvas = FigureCanvasQT( thisFig )
-    manager = FigureManagerQT( canvas, num )
+    thisFig = FigureClass(*args, **kwargs)
+    return new_figure_manager_given_figure(num, thisFig)
+
+
+def new_figure_manager_given_figure(num, figure):
+    """
+    Create a new figure manager instance for the given figure.
+    """
+    canvas = FigureCanvasQT(figure)
+    manager = FigureManagerQT(canvas, num)
     return manager
 
 
@@ -251,9 +267,6 @@ class FigureManagerQT( FigureManagerBase ):
         if matplotlib.is_interactive():
             self.window.show()
 
-        # attach a show method to the figure for pylab ease of use
-        self.canvas.figure.show = lambda *args: self.window.show()
-
         def notify_axes_change( fig ):
            # This will be called whenever the current axes is changed
            if self.toolbar != None: self.toolbar.update()
@@ -321,7 +334,7 @@ class NavigationToolbar2QT( NavigationToolbar2, qt.QWidget ):
                 continue
 
             fname = os.path.join(basedir, image_file + '.ppm')
-            image = qt.QPixmap() 
+            image = qt.QPixmap()
             image.load( fname )
 
             button = qt.QPushButton( qt.QIconSet( image ), "", self )

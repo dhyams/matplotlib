@@ -1,15 +1,16 @@
 from __future__ import print_function
-import textwrap
+
 import numpy as np
 from numpy import ma
-MaskedArray = ma.MaskedArray
 
-from cbook import dedent
-from ticker import NullFormatter, ScalarFormatter, LogFormatterMathtext, Formatter
-from ticker import NullLocator, LogLocator, AutoLocator, SymmetricalLogLocator, FixedLocator
-from ticker import is_decade
-from transforms import Transform, IdentityTransform
+from matplotlib.cbook import dedent
+from matplotlib.ticker import (NullFormatter, ScalarFormatter,
+                               LogFormatterMathtext)
+from matplotlib.ticker import (NullLocator, LogLocator, AutoLocator,
+                               SymmetricalLogLocator)
+from matplotlib.transforms import Transform, IdentityTransform
 from matplotlib import docstring
+
 
 class ScaleBase(object):
     """
@@ -31,7 +32,7 @@ class ScaleBase(object):
         Return the :class:`~matplotlib.transforms.Transform` object
         associated with this scale.
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def set_default_locators_and_formatters(self, axis):
         """
@@ -39,7 +40,7 @@ class ScaleBase(object):
         :class:`~matplotlib.ticker.Formatter` objects on the given
         axis to match this scale.
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def limit_range_for_scale(self, vmin, vmax, minpos):
         """
@@ -50,6 +51,7 @@ class ScaleBase(object):
          This is used by log scales to determine a minimum value.
         """
         return vmin, vmax
+
 
 class LinearScale(ScaleBase):
     """
@@ -90,9 +92,11 @@ def _mask_non_positives(a):
         return ma.MaskedArray(a, mask=mask)
     return a
 
+
 def _clip_non_positives(a):
     a[a <= 0.0] = 1e-300
     return a
+
 
 class LogScale(ScaleBase):
     """
@@ -115,6 +119,7 @@ class LogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
 
         def __init__(self, nonpos):
             Transform.__init__(self)
@@ -123,13 +128,12 @@ class LogScale(ScaleBase):
             else:
                 self._handle_nonpos = _clip_non_positives
 
-
     class Log10Transform(LogTransformBase):
         base = 10.0
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             a = self._handle_nonpos(a * 10.0)
-            if isinstance(a, MaskedArray):
+            if isinstance(a, ma.MaskedArray):
                 return ma.log10(a)
             return np.log10(a)
 
@@ -140,9 +144,10 @@ class LogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
         base = 10.0
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             return ma.power(10.0, a) / 10.0
 
         def inverted(self):
@@ -151,9 +156,9 @@ class LogScale(ScaleBase):
     class Log2Transform(LogTransformBase):
         base = 2.0
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             a = self._handle_nonpos(a * 2.0)
-            if isinstance(a, MaskedArray):
+            if isinstance(a, ma.MaskedArray):
                 return ma.log(a) / np.log(2)
             return np.log2(a)
 
@@ -164,9 +169,10 @@ class LogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
         base = 2.0
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             return ma.power(2.0, a) / 2.0
 
         def inverted(self):
@@ -175,9 +181,9 @@ class LogScale(ScaleBase):
     class NaturalLogTransform(LogTransformBase):
         base = np.e
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             a = self._handle_nonpos(a * np.e)
-            if isinstance(a, MaskedArray):
+            if isinstance(a, ma.MaskedArray):
                 return ma.log(a)
             return np.log(a)
 
@@ -188,9 +194,10 @@ class LogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
         base = np.e
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             return ma.power(np.e, a) / np.e
 
         def inverted(self):
@@ -200,6 +207,7 @@ class LogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
 
         def __init__(self, base, nonpos):
             Transform.__init__(self)
@@ -209,9 +217,9 @@ class LogScale(ScaleBase):
             else:
                 self._handle_nonpos = _clip_non_positives
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             a = self._handle_nonpos(a * self.base)
-            if isinstance(a, MaskedArray):
+            if isinstance(a, ma.MaskedArray):
                 return ma.log(a) / np.log(self.base)
             return np.log(a) / np.log(self.base)
 
@@ -222,17 +230,17 @@ class LogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
 
         def __init__(self, base):
             Transform.__init__(self)
             self.base = base
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             return ma.power(self.base, a) / self.base
 
         def inverted(self):
             return LogScale.LogTransform(self.base)
-
 
     def __init__(self, axis, **kwargs):
         """
@@ -316,6 +324,7 @@ class SymmetricalLogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
 
         def __init__(self, base, linthresh, linscale):
             Transform.__init__(self)
@@ -325,9 +334,12 @@ class SymmetricalLogScale(ScaleBase):
             self._linscale_adj = (linscale / (1.0 - self.base ** -1))
             self._log_base = np.log(base)
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             sign = np.sign(a)
-            masked = ma.masked_inside(a, -self.linthresh, self.linthresh, copy=False)
+            masked = ma.masked_inside(a,
+                                      -self.linthresh,
+                                      self.linthresh,
+                                      copy=False)
             log = sign * self.linthresh * (
                 self._linscale_adj +
                 ma.log(np.abs(masked) / self.linthresh) / self._log_base)
@@ -344,20 +356,26 @@ class SymmetricalLogScale(ScaleBase):
         input_dims = 1
         output_dims = 1
         is_separable = True
+        has_inverse = True
 
         def __init__(self, base, linthresh, linscale):
             Transform.__init__(self)
+            symlog = SymmetricalLogScale.SymmetricalLogTransform(base,
+                                                                 linthresh,
+                                                                 linscale)
             self.base = base
             self.linthresh = linthresh
+            self.invlinthresh = symlog.transform(linthresh)
             self.linscale = linscale
             self._linscale_adj = (linscale / (1.0 - self.base ** -1))
 
-        def transform(self, a):
+        def transform_non_affine(self, a):
             sign = np.sign(a)
-            masked = ma.masked_inside(a, -self.linthresh, self.linthresh, copy=False)
+            masked = ma.masked_inside(a, -self.invlinthresh,
+                                      self.invlinthresh, copy=False)
             exp = sign * self.linthresh * (
-                ma.power(self.base, sign * (masked / self.linthresh))
-                - self._linscale_adj)
+                ma.power(self.base, (sign * (masked / self.linthresh))
+                - self._linscale_adj))
             if masked.mask.any():
                 return ma.where(masked.mask, a / self._linscale_adj, exp)
             else:
@@ -408,7 +426,9 @@ class SymmetricalLogScale(ScaleBase):
         assert linthresh > 0.0
         assert linscale >= 1.0
 
-        self._transform = self.SymmetricalLogTransform(base, linthresh, linscale)
+        self._transform = self.SymmetricalLogTransform(base,
+                                                       linthresh,
+                                                       linscale)
 
         self.base = base
         self.linthresh = linthresh
@@ -422,7 +442,8 @@ class SymmetricalLogScale(ScaleBase):
         """
         axis.set_major_locator(SymmetricalLogLocator(self.get_transform()))
         axis.set_major_formatter(LogFormatterMathtext(self.base))
-        axis.set_minor_locator(SymmetricalLogLocator(self.get_transform(), self.subs))
+        axis.set_minor_locator(SymmetricalLogLocator(self.get_transform(),
+                                                     self.subs))
         axis.set_minor_formatter(NullFormatter())
 
     def get_transform(self):
@@ -432,16 +453,18 @@ class SymmetricalLogScale(ScaleBase):
         return self._transform
 
 
-
 _scale_mapping = {
-    'linear'            : LinearScale,
-    'log'               : LogScale,
-    'symlog'            : SymmetricalLogScale
+    'linear': LinearScale,
+    'log':    LogScale,
+    'symlog': SymmetricalLogScale
     }
+
+
 def get_scale_names():
     names = _scale_mapping.keys()
     names.sort()
     return names
+
 
 def scale_factory(scale, axis, **kwargs):
     """
@@ -460,6 +483,7 @@ def scale_factory(scale, axis, **kwargs):
 scale_factory.__doc__ = dedent(scale_factory.__doc__) % \
     {'names': " | ".join(get_scale_names())}
 
+
 def register_scale(scale_class):
     """
     Register a new kind of scale.
@@ -467,6 +491,7 @@ def register_scale(scale_class):
     *scale_class* must be a subclass of :class:`ScaleBase`.
     """
     _scale_mapping[scale_class.name] = scale_class
+
 
 def get_scale_docs():
     """
@@ -484,7 +509,8 @@ def get_scale_docs():
         docs.append("")
     return "\n".join(docs)
 
+
 docstring.interpd.update(
-    scale = ' | '.join([repr(x) for x in get_scale_names()]),
-    scale_docs = get_scale_docs().strip(),
+    scale=' | '.join([repr(x) for x in get_scale_names()]),
+    scale_docs=get_scale_docs().strip(),
     )

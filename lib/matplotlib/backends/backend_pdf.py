@@ -139,7 +139,7 @@ def pdfRepr(obj):
     # Floats. PDF does not have exponential notation (1.0e-10) so we
     # need to use %f with some precision.  Perhaps the precision
     # should adapt to the magnitude of the number?
-    elif isinstance(obj, float):
+    elif isinstance(obj, (float, np.floating)):
         if not np.isfinite(obj):
             raise ValueError("Can only output finite numbers in PDF")
         r = ("%.10f" % obj).encode('ascii')
@@ -151,7 +151,7 @@ def pdfRepr(obj):
         return [b'false', b'true'][obj]
 
     # Integers are written as such.
-    elif isinstance(obj, (int, long)):
+    elif isinstance(obj, (int, long, np.integer)):
         return ("%d" % obj).encode('ascii')
 
     # Unicode strings are encoded in UTF-16BE with byte-order mark.
@@ -394,11 +394,19 @@ class PdfFile(object):
         self.nextObject = 1     # next free object id
         self.xrefTable = [ [0, 65535, 'the zero object'] ]
         self.passed_in_file_object = False
+        self.original_file_like = None
+        self.tell_base = 0
         if is_string_like(filename):
             fh = open(filename, 'wb')
         elif is_writable_file_like(filename):
-            fh = filename
-            self.passed_in_file_object = True
+            try:
+                self.tell_base = filename.tell()
+            except IOError:
+                fh = BytesIO()
+                self.original_file_like = filename
+            else:
+                fh = filename
+                self.passed_in_file_object = True
         else:
             raise ValueError("filename must be a path or a file-like object")
 
@@ -524,6 +532,9 @@ class PdfFile(object):
         self.writeTrailer()
         if self.passed_in_file_object:
             self.fh.flush()
+        elif self.original_file_like is not None:
+            self.original_file_like.write(self.fh.getvalue())
+            self.fh.close()
         else:
             self.fh.close()
 
@@ -1351,7 +1362,7 @@ end"""
         return Reference(id)
 
     def recordXref(self, id):
-        self.xrefTable[id][0] = self.fh.tell()
+        self.xrefTable[id][0] = self.fh.tell() - self.tell_base
 
     def writeObject(self, object, contents):
         self.recordXref(object.id)
@@ -1360,7 +1371,7 @@ end"""
     def writeXref(self):
         """Write out the xref table."""
 
-        self.startxref = self.fh.tell()
+        self.startxref = self.fh.tell() - self.tell_base
         self.write(("xref\n0 %d\n" % self.nextObject).encode('ascii'))
         i = 0
         borken = False
@@ -1523,7 +1534,7 @@ class RendererPdf(RendererBase):
             path_codes.append(name)
 
         output = self.file.output
-        output(Op.gsave)
+        output(*self.gc.push())
         lastx, lasty = 0, 0
         for xo, yo, path_id, gc0, rgbFace in self._iter_collection(
             gc, master_transform, all_transforms, path_codes, offsets,
@@ -1534,7 +1545,7 @@ class RendererPdf(RendererBase):
             dx, dy = xo - lastx, yo - lasty
             output(1, 0, 0, 1, dx, dy, Op.concat_matrix, path_id, Op.use_xobject)
             lastx, lasty = xo, yo
-        output(Op.grestore)
+        output(*self.gc.pop())
 
     def draw_markers(self, gc, marker_path, marker_trans, path, trans, rgbFace=None):
         # For simple paths or small numbers of markers, don't bother
@@ -1545,7 +1556,7 @@ class RendererPdf(RendererBase):
             return
 
         self.check_gc(gc, rgbFace)
-        fillp = gc.fillp()
+        fillp = gc.fillp(rgbFace)
         strokep = gc.strokep()
 
         output = self.file.output
@@ -1660,7 +1671,7 @@ class RendererPdf(RendererBase):
         # Pop off the global transformation
         self.file.output(Op.grestore)
 
-    def draw_tex(self, gc, x, y, s, prop, angle):
+    def draw_tex(self, gc, x, y, s, prop, angle, ismath='TeX!', mtext=None):
         texmanager = self.get_texmanager()
         fontsize = prop.get_size_in_points()
         dvifile = texmanager.make_dvi(s, fontsize)
@@ -1752,7 +1763,7 @@ class RendererPdf(RendererBase):
             return s.encode('cp1252', 'replace')
         return s.encode('utf-16be', 'replace')
 
-    def draw_text(self, gc, x, y, s, prop, angle, ismath=False):
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # TODO: combine consecutive texts into one BT/ET delimited section
 
         # This function is rather complex, since there is no way to
@@ -1991,13 +2002,20 @@ class GraphicsContextPdf(GraphicsContextBase):
         return (self._linewidth > 0 and self._alpha > 0 and
                 (len(self._rgb) <= 3 or self._rgb[3] != 0.0))
 
-    def fillp(self):
+    def fillp(self, *args):
         """
         Predicate: does the path need to be filled?
+
+        An optional argument can be used to specify an alternative
+        _fillcolor, as needed by RendererPdf.draw_markers.
         """
-        return self._hatch or \
-            (self._fillcolor is not None and
-             (len(self._fillcolor) <= 3 or self._fillcolor[3] != 0.0))
+        if len(args):
+            _fillcolor = args[0]
+        else:
+            _fillcolor = self._fillcolor
+        return (self._hatch or
+                (_fillcolor is not None and
+                 (len(_fillcolor) <= 3 or _fillcolor[3] != 0.0)))
 
     def close_and_paint(self):
         """
@@ -2171,7 +2189,14 @@ def new_figure_manager(num, *args, **kwargs):
     # main-level app (egg backend_gtk, backend_gtkagg) for pylab
     FigureClass = kwargs.pop('FigureClass', Figure)
     thisFig = FigureClass(*args, **kwargs)
-    canvas = FigureCanvasPdf(thisFig)
+    return new_figure_manager_given_figure(num, thisFig)
+
+
+def new_figure_manager_given_figure(num, figure):
+    """
+    Create a new figure manager instance for the given figure.
+    """
+    canvas = FigureCanvasPdf(figure)
     manager = FigureManagerPdf(canvas, num)
     return manager
 

@@ -425,6 +425,7 @@ typedef struct {
     NSSize size;
     int level;
     CGFloat color[4];
+    float dpi;
 } GraphicsContext;
 
 static CGMutablePathRef _create_path(void* iterator)
@@ -850,6 +851,15 @@ GraphicsContext_set_graylevel(GraphicsContext* self, PyObject* args)
 }
 
 static PyObject*
+GraphicsContext_set_dpi (GraphicsContext* self, PyObject* args)
+{
+  if (!PyArg_ParseTuple(args, "f", &(self->dpi))) return NULL;
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject*
 GraphicsContext_set_linewidth (GraphicsContext* self, PyObject* args)
 {
     float width;
@@ -862,6 +872,8 @@ GraphicsContext_set_linewidth (GraphicsContext* self, PyObject* args)
         return NULL;
     }
 
+    // Convert points to pixels
+    width *= self->dpi / 72.0;
     CGContextSetLineWidth(cr, width);
 
     Py_INCREF(Py_None);
@@ -1143,43 +1155,6 @@ GraphicsContext_draw_markers (GraphicsContext* self, PyObject* args)
 
     Py_INCREF(Py_None);
     return Py_None;
-}
-
-static BOOL _clip(CGContextRef cr, PyObject* object)
-{
-    if (object == Py_None) return true;
-
-    PyArrayObject* array = NULL;
-    array = (PyArrayObject*) PyArray_FromObject(object, PyArray_DOUBLE, 2, 2);
-    if (!array)
-    {
-        PyErr_SetString(PyExc_ValueError, "failed to read clipping bounding box");
-        return false;
-    }
-
-    if (PyArray_NDIM(array)!=2 || PyArray_DIM(array, 0)!=2 || PyArray_DIM(array, 1)!=2)
-    {
-        Py_DECREF(array);
-        PyErr_SetString(PyExc_ValueError, "clipping bounding box should be a 2x2 array");
-        return false;
-    }
-
-    const double l = *(double*)PyArray_GETPTR2(array, 0, 0);
-    const double b = *(double*)PyArray_GETPTR2(array, 0, 1);
-    const double r = *(double*)PyArray_GETPTR2(array, 1, 0);
-    const double t = *(double*)PyArray_GETPTR2(array, 1, 1);
-
-    Py_DECREF(array);
-
-    CGRect rect;
-    rect.origin.x = (CGFloat) l;
-    rect.origin.y = (CGFloat) b;
-    rect.size.width = (CGFloat) (r-l);
-    rect.size.height = (CGFloat) (t-b);
-
-    CGContextClipToRect(cr, rect);
-
-    return true;
 }
 
 static int _transformation_converter(PyObject* object, void* pointer)
@@ -3026,9 +3001,6 @@ GraphicsContext_draw_image(GraphicsContext* self, PyObject* args)
     const char* data;
     int n;
     PyObject* image;
-    PyObject* cliprect;
-    PyObject* clippath;
-    PyObject* clippath_transform;
 
     CGContextRef cr = self->cr;
     if (!cr)
@@ -3037,18 +3009,14 @@ GraphicsContext_draw_image(GraphicsContext* self, PyObject* args)
         return NULL;
     }
 
-    if(!PyArg_ParseTuple(args, "ffiiOOOO", &x,
-                                           &y,
-                                           &nrows,
-                                           &ncols,
-                                           &image,
-                                           &cliprect,
-                                           &clippath,
-                                           &clippath_transform)) return NULL;
+    if(!PyArg_ParseTuple(args, "ffiiO", &x,
+                                        &y,
+                                        &nrows,
+                                        &ncols,
+                                        &image)) return NULL;
 
     CGColorSpaceRef colorspace;
     CGDataProviderRef provider;
-    double rect[4] = {0.0, 0.0, self->size.width, self->size.height};
 
     if (!PyBytes_Check(image))
     {
@@ -3106,40 +3074,8 @@ GraphicsContext_draw_image(GraphicsContext* self, PyObject* args)
         return NULL;
     }
 
-    BOOL ok = true;
-    CGContextSaveGState(cr);
-    if (!_clip(cr, cliprect)) ok = false;
-    else if (clippath!=Py_None)
-    {
-        int n;
-        void* iterator  = get_path_iterator(clippath,
-                                            clippath_transform,
-                                            0,
-                                            0,
-                                            rect,
-                                            SNAP_AUTO,
-                                            1.0,
-                                            0);
-        if (iterator)
-        {
-            n = _draw_path(cr, iterator);
-            free_path_iterator(iterator);
-            if (n > 0) CGContextClip(cr);
-        }
-        else
-        {
-            PyErr_SetString(PyExc_RuntimeError,
-                "draw_image: failed to obtain path iterator for clipping");
-            ok = false;
-        }
-    }
-
-    if (ok) CGContextDrawImage(cr, CGRectMake(x,y,ncols,nrows), bitmap);
-
+    CGContextDrawImage(cr, CGRectMake(x,y,ncols,nrows), bitmap);
     CGImageRelease(bitmap);
-    CGContextRestoreGState(cr);
-
-    if (!ok) return NULL;
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -3201,6 +3137,11 @@ static PyMethodDef GraphicsContext_methods[] = {
      (PyCFunction)GraphicsContext_set_graylevel,
      METH_VARARGS,
      "Sets the current stroke and fill color to a value in the DeviceGray color space."
+    },
+    {"set_dpi",
+     (PyCFunction)GraphicsContext_set_dpi,
+     METH_VARARGS,
+     "Sets the dpi for a graphics context."
     },
     {"set_linewidth",
      (PyCFunction)GraphicsContext_set_linewidth,
@@ -3492,7 +3433,7 @@ FigureCanvas_write_bitmap(FigureCanvas* self, PyObject* args)
     int n;
     const unichar* characters;
     NSSize size;
-    double width, height;
+    double width, height, dpi;
 
     if(!view)
     {
@@ -3500,8 +3441,8 @@ FigureCanvas_write_bitmap(FigureCanvas* self, PyObject* args)
         return NULL;
     }
     /* NSSize contains CGFloat; cannot use size directly */
-    if(!PyArg_ParseTuple(args, "u#dd",
-                                &characters, &n, &width, &height)) return NULL;
+    if(!PyArg_ParseTuple(args, "u#ddd",
+                                &characters, &n, &width, &height, &dpi)) return NULL;
     size.width = width;
     size.height = height;
 
@@ -3526,32 +3467,41 @@ FigureCanvas_write_bitmap(FigureCanvas* self, PyObject* args)
     if (invalid) [view setNeedsDisplay: YES];
 
     NSImage* image = [[NSImage alloc] initWithData: data];
-    [image setScalesWhenResized: YES];
-    [image setSize: size];
-    data = [image TIFFRepresentation];
+    NSImage *resizedImage = [[NSImage alloc] initWithSize:size];
+
+    [resizedImage lockFocus];
+    [image drawInRect:NSMakeRect(0, 0, width, height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+    [resizedImage unlockFocus];
+    data = [resizedImage TIFFRepresentation];
     [image release];
+    [resizedImage release];
 
-    if (! [extension isEqualToString: @"tiff"] &&
-        ! [extension isEqualToString: @"tif"])
-    {
-        NSBitmapImageFileType filetype;
-        NSBitmapImageRep* bitmapRep = [NSBitmapImageRep imageRepWithData: data];
-        if ([extension isEqualToString: @"bmp"])
-            filetype = NSBMPFileType;
-        else if ([extension isEqualToString: @"gif"])
-            filetype = NSGIFFileType;
-        else if ([extension isEqualToString: @"jpg"] ||
-                 [extension isEqualToString: @"jpeg"])
-            filetype = NSJPEGFileType;
-        else if ([extension isEqualToString: @"png"])
-            filetype = NSPNGFileType;
-        else
-        {   PyErr_SetString(PyExc_ValueError, "Unknown file type");
-            return NULL;
-        }
+    NSBitmapImageRep* rep = [NSBitmapImageRep imageRepWithData:data];
 
-        data = [bitmapRep representationUsingType:filetype properties:nil];
+    NSSize pxlSize = NSMakeSize([rep pixelsWide], [rep pixelsHigh]);
+    NSSize newSize = NSMakeSize(72.0 * pxlSize.width / dpi, 72.0 * pxlSize.height / dpi);
+
+    [rep setSize:newSize];
+
+    NSBitmapImageFileType filetype;
+    if ([extension isEqualToString: @"bmp"])
+        filetype = NSBMPFileType;
+    else if ([extension isEqualToString: @"gif"])
+        filetype = NSGIFFileType;
+    else if ([extension isEqualToString: @"jpg"] ||
+             [extension isEqualToString: @"jpeg"])
+        filetype = NSJPEGFileType;
+    else if ([extension isEqualToString: @"png"])
+        filetype = NSPNGFileType;
+    else if ([extension isEqualToString: @"tiff"] ||
+             [extension isEqualToString: @"tif"])
+        filetype = NSTIFFFileType;
+    else
+    {   PyErr_SetString(PyExc_ValueError, "Unknown file type");
+        return NULL;
     }
+
+    data = [rep representationUsingType:filetype properties:nil];
 
     [data writeToFile: filename atomically: YES];
     [pool release];
@@ -5743,25 +5693,18 @@ show(PyObject* self)
     if(nwin > 0)
     {
         [NSApp activateIgnoringOtherApps: YES];
-        for (NSWindow *window in [NSApp windows]) {
+        NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+        NSArray *windowsArray = [NSApp windows];
+        NSEnumerator *enumerator = [windowsArray objectEnumerator];
+        NSWindow *window;
+        while ((window = [enumerator nextObject])) {
             [window orderFront:nil];
         }
+        [pool release];
         [NSApp run];
     }
     Py_INCREF(Py_None);
     return Py_None;
-}
-
-static PyObject*
-verify_main_display(PyObject* self)
-{
-    CGDirectDisplayID display = CGMainDisplayID();
-    if (display == 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to obtain the display ID of the main display");
-        return NULL;
-    }
-    Py_INCREF(Py_True);
-    return Py_True;
 }
 
 typedef struct {
@@ -5973,11 +5916,6 @@ static struct PyMethodDef methods[] = {
     METH_VARARGS,
     "Sets the active cursor."
    },
-   {"verify_main_display",
-    (PyCFunction)verify_main_display,
-    METH_NOARGS,
-    "Verifies if the main display can be found. This function fails if Python is not built as a framework."
-   },
    {NULL,          NULL, 0, NULL}/* sentinel */
 };
 
@@ -6001,8 +5939,10 @@ PyObject* PyInit__macosx(void)
 
 void init_macosx(void)
 #endif
-{   PyObject *module;
+{
 
+#ifdef WITH_NEXT_FRAMEWORK
+    PyObject *module;
     import_array();
 
     if (PyType_Ready(&GraphicsContextType) < 0
@@ -6045,5 +5985,22 @@ void init_macosx(void)
 
 #if PY3K
     return module;
+#endif
+#else
+    /* WITH_NEXT_FRAMEWORK is not defined. This means that Python is not
+     * installed as a framework, and therefore the Mac OS X backend will
+     * not interact properly with the window manager.
+     */
+    PyErr_SetString(PyExc_RuntimeError,
+        "Python is not installed as a framework. The Mac OS X backend will "
+        "not be able to function correctly if Python is not installed as a "
+        "framework. See the Python documentation for more information on "
+        "installing Python as a framework on Mac OS X. Please either reinstall "
+        "Python as a framework, or try one of the other backends.");
+#if PY3K
+    return NULL;
+#else
+    return;
+#endif
 #endif
 }

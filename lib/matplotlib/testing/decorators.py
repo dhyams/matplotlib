@@ -142,7 +142,7 @@ class ImageComparisonTest(CleanupTest):
                     if self._remove_text:
                         self.remove_text(figure)
 
-                    figure.savefig(actual_fname)
+                    figure.savefig(actual_fname, **self._savefig_kwarg)
 
                     err = compare_images(expected_fname, actual_fname,
                                          self._tol, in_decorator=True)
@@ -166,7 +166,8 @@ class ImageComparisonTest(CleanupTest):
                 yield (do_test,)
 
 def image_comparison(baseline_images=None, extensions=None, tol=1e-3,
-                     freetype_version=None, remove_text=False):
+                     freetype_version=None, remove_text=False,
+                     savefig_kwarg=None):
     """
     call signature::
 
@@ -199,6 +200,10 @@ def image_comparison(baseline_images=None, extensions=None, tol=1e-3,
         Remove the title and tick text from the figure before
         comparison.  This does not remove other, more deliberate,
         text, such as legends and annotations.
+
+      *savefig_kwarg*: dict
+        Optional arguments that are passed to the savefig method.
+
     """
 
     if baseline_images is None:
@@ -207,6 +212,10 @@ def image_comparison(baseline_images=None, extensions=None, tol=1e-3,
     if extensions is None:
         # default extensions to test
         extensions = ['png', 'pdf', 'svg']
+
+    if savefig_kwarg is None:
+        #default no kwargs to savefig
+        savefig_kwarg = dict()
 
     def compare_images_decorator(func):
         # We want to run the setup function (the actual test function
@@ -231,7 +240,8 @@ def image_comparison(baseline_images=None, extensions=None, tol=1e-3,
              '_extensions': extensions,
              '_tol': tol,
              '_freetype_version': freetype_version,
-             '_remove_text': remove_text})
+             '_remove_text': remove_text,
+             '_savefig_kwarg': savefig_kwarg})
 
         return new_class
     return compare_images_decorator
@@ -244,17 +254,28 @@ def _image_directories(func):
     module_name = func.__module__
     if module_name == '__main__':
         # FIXME: this won't work for nested packages in matplotlib.tests
-        import warnings
         warnings.warn('test module run as script. guessing baseline image locations')
         script_name = sys.argv[0]
         basedir = os.path.abspath(os.path.dirname(script_name))
         subdir = os.path.splitext(os.path.split(script_name)[1])[0]
     else:
         mods = module_name.split('.')
-        assert mods.pop(0) == 'matplotlib'
+        mods.pop(0) # <- will be the name of the package being tested (in 
+                    # most cases "matplotlib")
         assert mods.pop(0) == 'tests'
         subdir = os.path.join(*mods)
-        basedir = os.path.dirname(matplotlib.tests.__file__)
+        
+        import imp
+        def find_dotted_module(module_name, path=None):
+            """A version of imp which can handle dots in the module name"""
+            res = None
+            for sub_mod in module_name.split('.'):
+                res = _, path, _ = imp.find_module(sub_mod, path)
+                path = [path]
+            return res
+        
+        mod_file = find_dotted_module(func.__module__)[1]
+        basedir = os.path.dirname(mod_file)
 
     baseline_dir = os.path.join(basedir, 'baseline_images', subdir)
     result_dir = os.path.abspath(os.path.join('result_images', subdir))

@@ -72,9 +72,16 @@ def new_figure_manager( num, *args, **kwargs ):
     """
     Create a new figure manager instance
     """
-    thisFig = Figure( *args, **kwargs )
-    canvas = FigureCanvasQT( thisFig )
-    manager = FigureManagerQT( canvas, num )
+    thisFig = Figure(*args, **kwargs)
+    return new_figure_manager_given_figure(num, thisFig)
+
+
+def new_figure_manager_given_figure(num, figure):
+    """
+    Create a new figure manager instance for the given figure.
+    """
+    canvas = FigureCanvasQT(figure)
+    manager = FigureManagerQT(canvas, num)
     return manager
 
 
@@ -201,18 +208,6 @@ class FigureCanvasQT( QtGui.QWidget, FigureCanvasBase ):
         w,h = self.get_width_height()
         self.resize( w, h )
 
-        # JDH: Note the commented out code below does not work as
-        # expected, because according to Pierre Raybaut, The reason is
-        # that PyQt fails (silently) to call a method of this object
-        # just before detroying it. Using a lambda function will work,
-        # exactly the same as using a function (which is not bound to
-        # the object to be destroyed).
-        #
-        #QtCore.QObject.connect(self, QtCore.SIGNAL('destroyed()'),
-        #    self.close_event)
-        QtCore.QObject.connect(self, QtCore.SIGNAL('destroyed()'),
-                               lambda: self.close_event())
-
     def __timerEvent(self, event):
         # hide until we can test and fix
         self.mpl_idle_event(event)
@@ -282,15 +277,17 @@ class FigureCanvasQT( QtGui.QWidget, FigureCanvasBase ):
         FigureCanvasBase.key_release_event( self, key )
         if DEBUG: print('key release', key)
 
-    def resizeEvent( self, event ):
-        if DEBUG: print('resize (%d x %d)' % (event.size().width(), event.size().height()))
+    def resizeEvent(self, event):
         w = event.size().width()
         h = event.size().height()
-        if DEBUG: print("FigureCanvasQtAgg.resizeEvent(", w, ",", h, ")")
+        if DEBUG:
+            print('resize (%d x %d)' % (w, h))
+            print("FigureCanvasQt.resizeEvent(%d, %d)" % (w, h))
         dpival = self.figure.dpi
         winch = w/dpival
         hinch = h/dpival
         self.figure.set_size_inches( winch, hinch )
+        FigureCanvasBase.resize_event(self)
         self.draw()
         self.update()
         QtGui.QWidget.resizeEvent(self, event)
@@ -330,7 +327,7 @@ class FigureCanvasQT( QtGui.QWidget, FigureCanvasBase ):
             # prepend the ctrl, alt, super keys if appropriate (sorted in that order)
             for modifier, prefix, Qt_key in self._modifier_keys:
                 if event.key() != Qt_key and int(event.modifiers()) & modifier == modifier:
-                    key = u'{}+{}'.format(prefix, key)
+                    key = u'{0}+{1}'.format(prefix, key)
 
         return key
 
@@ -370,6 +367,11 @@ class FigureCanvasQT( QtGui.QWidget, FigureCanvasBase ):
             self._idle = True
         if d: QtCore.QTimer.singleShot(0, idle_draw)
 
+class MainWindow(QtGui.QMainWindow):
+    def closeEvent(self, event):
+        self.emit(QtCore.SIGNAL('closing()'))
+        QtGui.QMainWindow.closeEvent(self, event)
+
 class FigureManagerQT( FigureManagerBase ):
     """
     Public attributes
@@ -384,8 +386,9 @@ class FigureManagerQT( FigureManagerBase ):
         if DEBUG: print('FigureManagerQT.%s' % fn_name())
         FigureManagerBase.__init__( self, canvas, num )
         self.canvas = canvas
-        self.window = QtGui.QMainWindow()
-        self.window.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.window = MainWindow()
+        self.window.connect(self.window, QtCore.SIGNAL('closing()'),
+            canvas.close_event)
 
         self.window.setWindowTitle("Figure %d" % num)
         image = os.path.join( matplotlib.rcParams['datapath'],'images','matplotlib.png' )
@@ -425,9 +428,6 @@ class FigureManagerQT( FigureManagerBase ):
 
         if matplotlib.is_interactive():
             self.window.show()
-
-        # attach a show method to the figure for pylab ease of use
-        self.canvas.figure.show = lambda *args: self.window.show()
 
         def notify_axes_change( fig ):
             # This will be called whenever the current axes is changed
@@ -497,6 +497,9 @@ class NavigationToolbar2QT( NavigationToolbar2, QtGui.QToolBar ):
         """ coordinates: should we show the coordinates on the right? """
         self.canvas = canvas
         self.coordinates = coordinates
+        self._actions = {}
+        """A mapping of toolitem method names to their QActions"""
+
         QtGui.QToolBar.__init__( self, parent )
         NavigationToolbar2.__init__( self, canvas )
 
@@ -512,6 +515,9 @@ class NavigationToolbar2QT( NavigationToolbar2, QtGui.QToolBar ):
             else:
                 a = self.addAction(self._icon(image_file + '.png'),
                                          text, getattr(self, callback))
+                self._actions[callback] = a
+                if callback in ['zoom', 'pan']:
+                    a.setCheckable(True)
                 if tooltip_text is not None:
                     a.setToolTip(tooltip_text)
 
@@ -570,6 +576,18 @@ class NavigationToolbar2QT( NavigationToolbar2, QtGui.QToolBar ):
 
             figureoptions.figure_edit(axes, self)
 
+    def _update_buttons_checked(self):
+        #sync button checkstates to match active mode
+        self._actions['pan'].setChecked(self._active == 'PAN')
+        self._actions['zoom'].setChecked(self._active == 'ZOOM')
+
+    def pan(self, *args):
+        super(NavigationToolbar2QT, self).pan(*args)
+        self._update_buttons_checked()
+
+    def zoom(self, *args):
+        super(NavigationToolbar2QT, self).zoom(*args)
+        self._update_buttons_checked()
 
     def dynamic_update( self ):
         self.canvas.draw()
@@ -581,8 +599,7 @@ class NavigationToolbar2QT( NavigationToolbar2, QtGui.QToolBar ):
 
     def set_cursor( self, cursor ):
         if DEBUG: print('Set cursor' , cursor)
-        QtGui.QApplication.restoreOverrideCursor()
-        QtGui.QApplication.setOverrideCursor( QtGui.QCursor( cursord[cursor] ) )
+        self.canvas.setCursor(cursord[cursor])
 
     def draw_rubberband( self, event, x0, y0, x1, y1 ):
         height = self.canvas.figure.bbox.height
@@ -598,7 +615,6 @@ class NavigationToolbar2QT( NavigationToolbar2, QtGui.QToolBar ):
     def configure_subplots(self):
         self.adj_window = QtGui.QMainWindow()
         win = self.adj_window
-        win.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
         win.setWindowTitle("Subplot Configuration Tool")
         image = os.path.join( matplotlib.rcParams['datapath'],'images','matplotlib.png' )

@@ -25,7 +25,7 @@ import matplotlib._png as _png
 # the image namespace:
 from matplotlib._image import *
 
-from matplotlib.transforms import BboxBase, Bbox
+from matplotlib.transforms import BboxBase, Bbox, IdentityTransform
 import matplotlib.transforms as mtransforms
 
 
@@ -270,8 +270,8 @@ class _AxesImageBase(martist.Artist, cm.ScalarMappable):
         # firs, convert the image extent to the ic
         x_llc, x_trc, y_llc, y_trc = self.get_extent()
 
-        xy = trans.transform_non_affine(np.array([(x_llc, y_llc),
-                                                  (x_trc, y_trc)]))
+        xy = trans.transform(np.array([(x_llc, y_llc),
+                                       (x_trc, y_trc)]))
 
         _xx1, _yy1 = xy[0]
         _xx2, _yy2 = xy[1]
@@ -283,15 +283,16 @@ class _AxesImageBase(martist.Artist, cm.ScalarMappable):
         if self._image_skew_coordinate:
             # skew the image when required.
             x_lrc, y_lrc = self._image_skew_coordinate
-            xy2 = trans.transform_non_affine(np.array([(x_lrc, y_lrc)]))
+            xy2 = trans.transform(np.array([(x_lrc, y_lrc)]))
             _xx3, _yy3 = xy2[0]
 
             tr_rotate_skew = self._get_rotate_and_skew_transform(_xx1, _yy1,
                                                                  _xx2, _yy2,
                                                                  _xx3, _yy3)
-            trans_ic_to_canvas = tr_rotate_skew+trans.get_affine()
+            trans_ic_to_canvas = tr_rotate_skew
         else:
-            trans_ic_to_canvas = trans.get_affine()
+            trans_ic_to_canvas = IdentityTransform()
+
 
         # Now, viewLim in the ic.  It can be rotated and can be
         # skewed. Make it big enough.
@@ -698,7 +699,7 @@ class NonUniformImage(AxesImage):
             if A.dtype != np.uint8:
                 A = (255*A).astype(np.uint8)
             if A.shape[2] == 3:
-                B = zeros(tuple(list(A.shape[0:2]) + [4]), np.uint8)
+                B = np.zeros(tuple(list(A.shape[0:2]) + [4]), np.uint8)
                 B[:,:,0:3] = A
                 B[:,:,3] = 255
                 A = B
@@ -1042,7 +1043,7 @@ class BboxImage(_AxesImageBase):
 
         interp_at_native is a flag that determines whether or not interpolation should
         still be applied when the image is displayed at its native resolution.  A common
-        use case for this is when displaying an image for annotational purposes; it is 
+        use case for this is when displaying an image for annotational purposes; it is
         treated similarly to Photoshop (interpolation is only used when displaying the
         image at non-native resolutions).
 
@@ -1075,10 +1076,10 @@ class BboxImage(_AxesImageBase):
         else:
             raise ValueError("unknown type of bbox")
 
-
     def contains(self, mouseevent):
         """Test whether the mouse event occured within the image."""
-        if callable(self._contains): return self._contains(self,mouseevent)
+        if callable(self._contains): 
+            return self._contains(self, mouseevent)
 
         if not self.get_visible():# or self.get_figure()._renderer is None:
             return False,{}
@@ -1137,7 +1138,7 @@ class BboxImage(_AxesImageBase):
         numrows, numcols = self._A.shape[:2]
 
         if not self.interp_at_native and widthDisplay==numcols and heightDisplay==numrows:
-           im.set_interpolation(0)
+            im.set_interpolation(0)
 
         # resize viewport to display
         rx = widthDisplay / numcols
@@ -1167,9 +1168,10 @@ class BboxImage(_AxesImageBase):
 
 def imread(fname, format=None):
     """
-    Return image file in *fname* as :class:`numpy.array`.  *fname* may
-    be a string path or a Python file-like object.  If using a file
-    object, it must be opened in binary mode.
+    Read an image from a file into an array.
+
+    *fname* may be a string path or a Python file-like object.  If
+    using a file object, it must be opened in binary mode.
 
     If *format* is provided, will try to read file of that type,
     otherwise the format is deduced from the filename.  If nothing can
@@ -1234,7 +1236,8 @@ def imread(fname, format=None):
 def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
            origin=None, dpi=100):
     """
-    Saves a 2D :class:`numpy.array` as an image with one pixel per element.
+    Save an array as in image file.
+
     The output formats available depend on the backend being used.
 
     Arguments:
@@ -1243,7 +1246,7 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
         If *format* is *None* and *fname* is a string, the output
         format is deduced from the extension of the filename.
       *arr*:
-        A 2D array.
+        An MxN (luminance), MxNx3 (RGB) or MxNx4 (RGBA) array.
     Keyword arguments:
       *vmin*/*vmax*: [ None | scalar ]
         *vmin* and *vmax* set the color scaling for the image by fixing the
@@ -1266,7 +1269,7 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
     from matplotlib.figure import Figure
 
-    figsize = [x / float(dpi) for x in arr.shape[::-1]]
+    figsize = [x / float(dpi) for x in (arr.shape[1], arr.shape[0])]
     fig = Figure(figsize=figsize, dpi=dpi, frameon=False)
     canvas = FigureCanvas(fig)
     im = fig.figimage(arr, cmap=cmap, vmin=vmin, vmax=vmax, origin=origin)
@@ -1344,7 +1347,7 @@ def thumbnail(infile, thumbfile, scale=0.1, interpolation='bilinear',
         backend) will be used which will cause a figure to be raised
         if :func:`~matplotlib.pyplot.show` is called.  If it is False,
         a pure image backend will be used depending on the extension,
-        'png'->FigureCanvasAgg, 'pdf'->FigureCanvasPDF,
+        'png'->FigureCanvasAgg, 'pdf'->FigureCanvasPdf,
         'svg'->FigureCanvasSVG
 
 
@@ -1380,7 +1383,7 @@ def thumbnail(infile, thumbfile, scale=0.1, interpolation='bilinear',
         if extension=='.png':
             from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
         elif extension=='.pdf':
-            from matplotlib.backends.backend_pdf import FigureCanvasPDF as FigureCanvas
+            from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
         elif extension=='.svg':
             from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
         else:

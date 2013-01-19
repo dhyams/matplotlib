@@ -358,7 +358,7 @@ class RendererEMF(RendererBase):
             if debugPrint: print("draw_rectangle: optimizing away (%f,%f) w=%f,h=%f" % (x,y,width,height))
 
 
-    def draw_text(self, gc, x, y, s, prop, angle, ismath=False):
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         """
         Draw the text.Text instance s at x,y (display coords) with font
         properties instance prop at angle in degrees, using GraphicsContext gc
@@ -688,7 +688,14 @@ def new_figure_manager(num, *args, **kwargs):
     # main-level app (egg backend_gtk, backend_gtkagg) for pylab
     FigureClass = kwargs.pop('FigureClass', Figure)
     thisFig = FigureClass(*args, **kwargs)
-    canvas = FigureCanvasEMF(thisFig)
+    return new_figure_manager_given_figure(num, thisFig)
+
+
+def new_figure_manager_given_figure(num, figure):
+    """
+    Create a new figure manager instance for the given figure.
+    """
+    canvas = FigureCanvasEMF(figure)
     manager = FigureManagerEMF(canvas, num)
     return manager
 

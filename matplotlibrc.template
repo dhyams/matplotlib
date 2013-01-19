@@ -41,13 +41,23 @@ backend      : %(backend)s
 # "pyqt" and "pyside".  The "pyqt" setting has the side effect of
 # forcing the use of Version 2 API for QString and QVariant.
 
+# The port to use for the web server in the WebAgg backend.
+# webagg.port : 8888
+
+# If webagg.port is unavailable, a number of other random ports will
+# be tried until one that is available is found.
+# webagg.port_retries : 50
+
+# When True, open the webbrowser to the plot that is shown
+# webagg.open_in_browser : True
+
 # if you are running pyplot inside a GUI and your backend choice
 # conflicts, we will automatically try to find a compatible one for
 # you if backend_fallback is True
 #backend_fallback: True
 
 #interactive  : False
-#toolbar      : toolbar2   # None | classic | toolbar2
+#toolbar      : toolbar2   # None | toolbar2  ("classic" is deprecated)
 #timezone     : UTC        # a pytz timezone string, eg US/Central or Europe/Paris
 
 # Where your matplotlib data lives if you installed to a non-default
@@ -56,11 +66,11 @@ backend      : %(backend)s
 
 
 ### LINES
-# See http://matplotlib.sourceforge.net/api/artist_api.html#module-matplotlib.lines for more
+# See http://matplotlib.org/api/artist_api.html#module-matplotlib.lines for more
 # information on line properties.
 #lines.linewidth   : 1.0     # line width in points
 #lines.linestyle   : -       # solid line
-#lines.color       : blue
+#lines.color       : blue    # has no affect on plot(); see axes.color_cycle
 #lines.marker      : None    # the default marker
 #lines.markeredgewidth  : 0.5     # the line width around the marker symbol
 #lines.markersize  : 6            # markersize, in points
@@ -73,7 +83,7 @@ backend      : %(backend)s
 ### PATCHES
 # Patches are graphical objects that fill 2D space, like polygons or
 # circles.  See
-# http://matplotlib.sourceforge.net/api/artist_api.html#module-matplotlib.patches
+# http://matplotlib.org/api/artist_api.html#module-matplotlib.patches
 # information on patch properties
 #patch.linewidth        : 1.0     # edge width in points
 #patch.facecolor        : blue
@@ -83,7 +93,7 @@ backend      : %(backend)s
 ### FONT
 #
 # font properties used by text.Text.  See
-# http://matplotlib.sourceforge.net/api/font_manager_api.html for more
+# http://matplotlib.org/api/font_manager_api.html for more
 # information on font properties.  The 6 font properties used for font
 # matching are given below with their default values.
 #
@@ -134,7 +144,7 @@ backend      : %(backend)s
 
 ### TEXT
 # text properties used by text.Text.  See
-# http://matplotlib.sourceforge.net/api/artist_api.html#module-matplotlib.text for more
+# http://matplotlib.org/api/artist_api.html#module-matplotlib.text for more
 # information on text properties
 
 #text.color          : black
@@ -212,7 +222,7 @@ text.hinting_factor : 8 # Specifies the amount of softness for hinting in the
 ### AXES
 # default face and edge color, default tick sizes,
 # default fontsizes for ticklabels, and so on.  See
-# http://matplotlib.sourceforge.net/api/axes_api.html#module-matplotlib.axes
+# http://matplotlib.org/api/axes_api.html#module-matplotlib.axes
 #axes.hold           : True    # whether to clear the axes by default on
 #axes.facecolor      : white   # axes background color
 #axes.edgecolor      : black   # axes edge color
@@ -245,7 +255,7 @@ text.hinting_factor : 8 # Specifies the amount of softness for hinting in the
 #axes3d.grid         : True    # display grid on 3d axes
 
 ### TICKS
-# see http://matplotlib.sourceforge.net/api/axis_api.html#matplotlib.axis.Tick
+# see http://matplotlib.org/api/axis_api.html#matplotlib.axis.Tick
 #xtick.major.size     : 4      # major tick size in points
 #xtick.minor.size     : 2      # minor tick size in points
 #xtick.major.width    : 0.5    # major tick width in points
@@ -271,6 +281,7 @@ text.hinting_factor : 8 # Specifies the amount of softness for hinting in the
 #grid.color       :   black   # grid color
 #grid.linestyle   :   :       # dotted
 #grid.linewidth   :   0.5     # in points
+#grid.alpha       :   1.0     # transparency, between 0.0 and 1.0
 
 ### Legend
 #legend.fancybox      : False  # if True, use a rounded box for the
@@ -294,13 +305,16 @@ text.hinting_factor : 8 # Specifies the amount of softness for hinting in the
 #legend.columnspacing : 2.    # the border between the axes and legend edge in fraction of fontsize
 #legend.shadow        : False
 #legend.frameon       : True   # whether or not to draw a frame around legend
+#legend.scatterpoints : 3 # number of scatter points
 
 ### FIGURE
-# See http://matplotlib.sourceforge.net/api/figure_api.html#matplotlib.figure.Figure
+# See http://matplotlib.org/api/figure_api.html#matplotlib.figure.Figure
 #figure.figsize   : 8, 6    # figure size in inches
 #figure.dpi       : 80      # figure dots per inch
 #figure.facecolor : 0.75    # figure facecolor; 0.75 is scalar gray
 #figure.edgecolor : white   # figure edgecolor
+#figure.autolayout : False  # When True, automatically adjust subplot
+                            # parameters to make the plot fit the figure
 
 # The figure subplot parameters.  All dimensions are a fraction of the
 # figure width or height
@@ -420,15 +434,8 @@ text.hinting_factor : 8 # Specifies the amount of softness for hinting in the
 #keymap.xscale : L, k                # toggle scaling of x-axes ('log'/'linear')
 #keymap.all_axes : a                 # enable all axes
 
-# Control downloading of example data. Various examples download some
-# data from the Matplotlib git repository to avoid distributing extra
-# files, but sometimes you want to avoid that. In that case set
-# examples.download to False and examples.directory to the directory
-# where you have a checkout of https://github.com/matplotlib/sample_data
-
-#examples.download : True  # False to bypass downloading mechanism
-#examples.directory : ''   # directory to look in if download is false
-#
+# Control location of examples data files
+#examples.directory : ''   # directory to look in for custom installation
 
 ###ANIMATION settings
 #animation.writer : ffmpeg         # MovieWriter 'backend' to use
@@ -438,7 +445,11 @@ text.hinting_factor : 8 # Specifies the amount of softness for hinting in the
 #animation.frame_format: 'png'     # Controls frame format used by temp files
 #animation.ffmpeg_path: 'ffmpeg'   # Path to ffmpeg binary. Without full path
                                    # $PATH is searched
-#animation.ffmpeg_args: ''         # Additional arugments to pass to mencoder
-#animation.mencoder_path: 'ffmpeg' # Path to mencoder binary. Without full path
+#animation.ffmpeg_args: ''         # Additional arguments to pass to ffmpeg
+#animation.avconv_path: 'avconv'   # Path to avconv binary. Without full path
                                    # $PATH is searched
-#animation.mencoder_args: ''       # Additional arugments to pass to mencoder
+#animation.avconv_args: ''         # Additional arguments to pass to avconv
+#animation.mencoder_path: 'mencoder' 
+			           # Path to mencoder binary. Without full path
+                                   # $PATH is searched
+#animation.mencoder_args: ''       # Additional arguments to pass to mencoder

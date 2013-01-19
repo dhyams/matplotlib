@@ -11,8 +11,44 @@ help figure out possible sources of the changes you are experiencing.
 For new features that were added to matplotlib, please see
 :ref:`whats-new`.
 
+
+Changes in 1.3.x
+================
+
+* Removed call of :meth:`~matplotlib.axes.Axes.grid` in
+  :meth:`~matplotlib.pyplot.plotfile`. To draw the axes grid, set to *True*
+  matplotlib.rcParams['axes.grid'] or ``axes.grid`` in ``.matplotlibrc`` or
+  explicitly call :meth:`~matplotlib.axes.Axes.grid`
+
+* A new keyword *extendrect* in :meth:`~matplotlib.pyplot.colorbar` and
+  :class:`~matplotlib.colorbar.ColorbarBase` allows one to control the shape
+  of colorbar extensions.
+
+* The `~matplotlib.mpl` module is now deprecated. Those who relied on this
+  module should transition to simply using `import matplotlib as mpl`.
+
 Changes in 1.2.x
 ================
+
+* The ``classic`` option of the rc parameter ``toolbar`` is deprecated
+  and will be removed in the next release.
+
+* The :meth:`~matplotlib.cbook.isvector` method has been removed since it
+  is no longer functional.
+
+* The `rasterization_zorder` property on `~matplotlib.axes.Axes` a
+  zorder below which artists are rasterized.  This has defaulted to
+  -30000.0, but it now defaults to `None`, meaning no artists will be
+  rasterized.  In order to rasterize artists below a given zorder
+  value, `set_rasterization_zorder` must be explicitly called.
+
+* In :meth:`~matplotlib.axes.Axes.scatter`, and `~pyplot.scatter`,
+  when specifying a marker using a tuple, the angle is now specified
+  in degrees, not radians.
+
+* Using :meth:`~matplotlib.axes.Axes.twinx` or
+  :meth:`~matplotlib.axes.Axes.twiny` no longer overrides the current locaters
+  and formatters on the axes.
 
 * In :meth:`~matplotlib.axes.Axes.contourf`, the handling of the *extend*
   kwarg has changed.  Formerly, the extended ranges were mapped
@@ -46,7 +82,7 @@ Changes in 1.2.x
       projection = kwargs.pop('projection', None)
       if ispolar:
           if projection is not None and projection != 'polar':
-              raise ValuError('polar and projection args are inconsistent')
+              raise ValueError('polar and projection args are inconsistent')
           projection = 'polar'
       ax = projection_factory(projection, self, rect, **kwargs)
       key = self._make_key(*args, **kwargs)
@@ -71,6 +107,71 @@ Changes in 1.2.x
   the errorbars.  For backwards compatibility, specifying either of the
   original keyword arguments will override any value provided by
   *capthick*.
+
+* Transform subclassing behaviour is now subtly changed. If your transform
+  implements a non-affine transformation, then it should override the
+  ``transform_non_affine`` method, rather than the generic ``transform`` method.
+  Previously transforms would define ``transform`` and then copy the
+  method into ``transform_non_affine``::
+
+     class MyTransform(mtrans.Transform):
+         def transform(self, xy):
+             ...
+         transform_non_affine = transform
+
+
+  This approach will no longer function correctly and should be changed to::
+
+     class MyTransform(mtrans.Transform):
+         def transform_non_affine(self, xy):
+             ...
+
+
+* Artists no longer have ``x_isdata`` or ``y_isdata`` attributes; instead
+  any artist's transform can be interrogated with
+  ``artist_instance.get_transform().contains_branch(ax.transData)``
+
+* Lines added to an axes now take into account their transform when updating the
+  data and view limits. This means transforms can now be used as a pre-transform.
+  For instance::
+
+      >>> import matplotlib.pyplot as plt
+      >>> import matplotlib.transforms as mtrans
+      >>> ax = plt.axes()
+      >>> ax.plot(range(10), transform=mtrans.Affine2D().scale(10) + ax.transData)
+      >>> print(ax.viewLim)
+      Bbox('array([[  0.,   0.],\n       [ 90.,  90.]])')
+
+* One can now easily get a transform which goes from one transform's coordinate
+  system to another, in an optimized way, using the new subtract method on a
+  transform. For instance, to go from data coordinates to axes coordinates::
+
+      >>> import matplotlib.pyplot as plt
+      >>> ax = plt.axes()
+      >>> data2ax = ax.transData - ax.transAxes
+      >>> print(ax.transData.depth, ax.transAxes.depth)
+      3, 1
+      >>> print(data2ax.depth)
+      2
+
+  for versions before 1.2 this could only be achieved in a sub-optimal way,
+  using ``ax.transData + ax.transAxes.inverted()`` (depth is a new concept,
+  but had it existed it would return 4 for this example).
+
+* ``twinx`` and ``twiny`` now returns an instance of SubplotBase if
+  parent axes is an instance of SubplotBase.
+
+* All Qt3-based backends are now deprecated due to the lack of py3k bindings.
+  Qt and QtAgg backends will continue to work in v1.2.x for py2.6
+  and py2.7. It is anticipated that the Qt3 support will be completely
+  removed for the next release.
+
+* :class:`~matplotlib.colors.ColorConverter`,
+  :class:`~matplotlib.colors.Colormap` and
+  :class:`~matplotlib.colors.Normalize` now subclasses ``object``
+
+* ContourSet instances no longer have a ``transform`` attribute. Instead,
+  access the transform with the ``get_transform`` method.
 
 Changes in 1.1.x
 ================
@@ -709,7 +810,7 @@ Changes for 0.91.0
 
 * Changed :func:`cbook.reversed` so it yields a tuple rather than a
   (index, tuple). This agrees with the python reversed builtin,
-  and cbook only defines reversed if python doesnt provide the
+  and cbook only defines reversed if python doesn't provide the
   builtin.
 
 * Made skiprows=1 the default on :func:`csv2rec`
@@ -794,13 +895,13 @@ Changes for 0.90.1
     units.AxisInfo object rather than a tuple.  This will make it
     easier to add axis info functionality (eg I added a default label
     on this iteration) w/o having to change the tuple length and hence
-    the API of the client code everytime new functionality is added.
+    the API of the client code every time new functionality is added.
     Also, units.ConversionInterface.convert_to_value is now simply
     named units.ConversionInterface.convert.
 
     Axes.errorbar uses Axes.vlines and Axes.hlines to draw its error
     limits int he vertical and horizontal direction.  As you'll see
-    in the changes below, these funcs now return a LineCollection
+    in the changes below, these functions now return a LineCollection
     rather than a list of lines.  The new return signature for
     errorbar is  ylins, caplines, errorcollections where
     errorcollections is a xerrcollection, yerrcollection
@@ -885,7 +986,7 @@ Changes for 0.87.7
     markeredgecolor and markerfacecolor cannot be configured in
     matplotlibrc any more. Instead, markers are generally colored
     automatically based on the color of the line, unless marker colors
-    are explicitely set as kwargs - NN
+    are explicitly set as kwargs - NN
 
     Changed default comment character for load to '#' - JDH
 
@@ -1100,7 +1201,7 @@ Changes for 0.82
 
         I see that hist uses the linspace function to create the bins
         and then uses searchsorted to put the values in their correct
-        bin. Thats all good but I am confused over the use of linspace
+        bin. That's all good but I am confused over the use of linspace
         for the bin creation. I wouldn't have thought that it does
         what is needed, to quote the docstring it creates a "Linear
         spaced array from min to max". For it to work correctly
@@ -1296,7 +1397,7 @@ Changes for 0.65.1
 
   removed add_axes and add_subplot from backend_bases.  Use
   figure.add_axes and add_subplot instead.  The figure now manages the
-  current axes with gca and sca for get and set current axe.  If you
+  current axes with gca and sca for get and set current axes.  If you
   have code you are porting which called, eg, figmanager.add_axes, you
   can now simply do figmanager.canvas.figure.add_axes.
 
@@ -1364,7 +1465,7 @@ Changes for 0.61
 
   canvas.connect is now deprecated for event handling.  use
   mpl_connect and mpl_disconnect instead.  The callback signature is
-  func(event) rather than func(widget, evet)
+  func(event) rather than func(widget, event)
 
 Changes for 0.60
 ================
@@ -1528,7 +1629,7 @@ Object constructors
   You no longer pass the bbox, dpi, or transforms to the various
   Artist constructors.  The old way or creating lines and rectangles
   was cumbersome because you had to pass so many attributes to the
-  Line2D and Rectangle classes not related directly to the gemoetry
+  Line2D and Rectangle classes not related directly to the geometry
   and properties of the object.  Now default values are added to the
   object when you call axes.add_line or axes.add_patch, so they are
   hidden from the user.
@@ -1557,18 +1658,18 @@ Transformations
 
   The entire transformation architecture has been rewritten.
   Previously the x and y transformations where stored in the xaxis and
-  yaxis insstances.  The problem with this approach is it only allows
+  yaxis instances.  The problem with this approach is it only allows
   for separable transforms (where the x and y transformations don't
   depend on one another).  But for cases like polar, they do.  Now
   transformations operate on x,y together.  There is a new base class
   matplotlib.transforms.Transformation and two concrete
-  implemetations, matplotlib.transforms.SeparableTransformation and
+  implementations, matplotlib.transforms.SeparableTransformation and
   matplotlib.transforms.Affine.  The SeparableTransformation is
   constructed with the bounding box of the input (this determines the
   rectangular coordinate system of the input, ie the x and y view
-  limits), the bounding box of the display, and possibily nonlinear
+  limits), the bounding box of the display, and possibly nonlinear
   transformations of x and y.  The 2 most frequently used
-  transformations, data cordinates -> display and axes coordinates ->
+  transformations, data coordinates -> display and axes coordinates ->
   display are available as ax.transData and ax.transAxes.  See
   alignment_demo.py which uses axes coords.
 
@@ -1698,7 +1799,7 @@ Changes for 0.42
 
   * backend_bases.AxisTextBase is now text.Text module
 
-  * All the erase and reset functionality removed frmo AxisText - not
+  * All the erase and reset functionality removed from AxisText - not
     needed with double buffered drawing.  Ditto with state change.
     Text instances have a get_prop_tup method that returns a hashable
     tuple of text properties which you can use to see if text props

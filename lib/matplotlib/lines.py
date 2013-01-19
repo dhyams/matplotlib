@@ -6,6 +6,8 @@ variety of line styles, markers and colors.
 # TODO: expose cap and join style attrs
 from __future__ import division, print_function
 
+import warnings
+
 import numpy as np
 from numpy import ma
 from matplotlib import verbose
@@ -249,17 +251,15 @@ class Line2D(Artist):
         if len(self._xy)==0: return False,{}
 
         # Convert points to pixels
-        if self._transformed_path is None:
-            self._transform_path()
-        path, affine = self._transformed_path.get_transformed_path_and_affine()
+        path, affine = self._get_transformed_path().get_transformed_path_and_affine()
         path = affine.transform_path(path)
         xy = path.vertices
         xt = xy[:, 0]
         yt = xy[:, 1]
 
         # Convert pick radius from points to pixels
-        if self.figure == None:
-            warning.warn('no figure set when check if mouse is on line')
+        if self.figure is None:
+            warnings.warn('no figure set when check if mouse is on line')
             pixels = self.pickradius
         else:
             pixels = self.figure.dpi/72. * self.pickradius
@@ -446,6 +446,11 @@ class Line2D(Artist):
         self._invalidy = False
 
     def _transform_path(self, subslice=None):
+        """
+        Puts a TransformedPath instance at self._transformed_path,
+        all invalidation of the transform is then handled by the 
+        TransformedPath instance.
+        """
         # Masked arrays are now handled by the Path class itself
         if subslice is not None:
             _path = Path(self._xy[subslice,:])
@@ -453,6 +458,14 @@ class Line2D(Artist):
             _path = self._path
         self._transformed_path = TransformedPath(_path, self.get_transform())
 
+    def _get_transformed_path(self):
+        """
+        Return the :class:`~matplotlib.transforms.TransformedPath` instance
+        of this line.
+        """
+        if self._transformed_path is None:
+            self._transform_path()
+        return self._transformed_path
 
     def set_transform(self, t):
         """
@@ -471,6 +484,9 @@ class Line2D(Artist):
 
     @allow_rasterization
     def draw(self, renderer):
+        """draw the Line with `renderer` unless visiblity is False"""
+        if not self.get_visible(): return
+
         if self._invalidy or self._invalidx:
             self.recache()
         self.ind_offset = 0  # Needed for contains() method.
@@ -482,10 +498,8 @@ class Line2D(Artist):
             subslice = slice(max(i0-1, 0), i1+1)
             self.ind_offset = subslice.start
             self._transform_path(subslice)
-        if self._transformed_path is None:
-            self._transform_path()
 
-        if not self.get_visible(): return
+        transformed_path = self._get_transformed_path()
 
         renderer.open_group('line2d', self.get_gid())
         gc = renderer.new_gc()
@@ -507,7 +521,7 @@ class Line2D(Artist):
 
         funcname = self._lineStyles.get(self._linestyle, '_draw_nothing')
         if funcname != '_draw_nothing':
-            tpath, affine = self._transformed_path.get_transformed_path_and_affine()
+            tpath, affine = transformed_path.get_transformed_path_and_affine()
             if len(tpath.vertices):
                 self._lineFunc = getattr(self, funcname)
                 funcname = self.drawStyles.get(self._drawstyle, '_draw_lines')
@@ -517,18 +531,18 @@ class Line2D(Artist):
         if self._marker:
             gc = renderer.new_gc()
             self._set_gc_clip(gc)
-            rgbFace = self._get_rgb_face()
-            rgbFaceAlt = self._get_rgb_face(alt=True)
+            rgbaFace = self._get_rgba_face()
+            rgbaFaceAlt = self._get_rgba_face(alt=True)
             edgecolor = self.get_markeredgecolor()
             if is_string_like(edgecolor) and edgecolor.lower() == 'none':
                 gc.set_linewidth(0)
-                gc.set_foreground(rgbFace)
+                gc.set_foreground(rgbaFace)
             else:
                 gc.set_foreground(edgecolor)
                 gc.set_linewidth(self._markeredgewidth)
             gc.set_alpha(self._alpha)
             marker = self._marker
-            tpath, affine = self._transformed_path.get_transformed_points_and_affine()
+            tpath, affine = transformed_path.get_transformed_points_and_affine()
             if len(tpath.vertices):
                 # subsample the markers if markevery is not None
                 markevery = self.get_markevery()
@@ -560,16 +574,20 @@ class Line2D(Artist):
                     marker_trans = marker_trans.scale(w)
                 else:
                     gc.set_linewidth(0)
+                if rgbaFace is not None:
+                    gc.set_alpha(rgbaFace[3])
                 renderer.draw_markers(
                     gc, marker_path, marker_trans, subsampled, affine.frozen(),
-                    rgbFace)
+                    rgbaFace)
                 alt_marker_path = marker.get_alt_path()
                 if alt_marker_path:
+                    if rgbaFaceAlt is not None:
+                        gc.set_alpha(rgbaFaceAlt[3])
                     alt_marker_trans = marker.get_alt_transform()
                     alt_marker_trans = alt_marker_trans.scale(w)
                     renderer.draw_markers(
                         gc, alt_marker_path, alt_marker_trans, subsampled,
-                        affine.frozen(), rgbFaceAlt)
+                        affine.frozen(), rgbaFaceAlt)
 
             gc.restore()
 
@@ -941,11 +959,19 @@ class Line2D(Artist):
 
     def _get_rgb_face(self, alt=False):
         facecolor = self._get_markerfacecolor(alt=alt)
-        if is_string_like(facecolor) and facecolor.lower()=='none':
+        if is_string_like(facecolor) and facecolor.lower() == 'none':
             rgbFace = None
         else:
             rgbFace = colorConverter.to_rgb(facecolor)
         return rgbFace
+
+    def _get_rgba_face(self, alt=False):
+        facecolor = self._get_markerfacecolor(alt=alt)
+        if is_string_like(facecolor) and facecolor.lower() == 'none':
+            rgbaFace = None
+        else:
+            rgbaFace = colorConverter.to_rgba(facecolor)
+        return rgbaFace
 
     # some aliases....
     def set_aa(self, val):

@@ -7,7 +7,6 @@ http://stackoverflow.com/questions/2225995/how-can-i-create-stacked-line-graph-w
 
 """
 import numpy as np
-import matplotlib
 
 __all__ = ['stackplot']
 
@@ -15,26 +14,25 @@ __all__ = ['stackplot']
 def stackplot(axes, x, *args, **kwargs):
     """Draws a stacked area plot.
 
-    Parameters
-    ----------
     *x* : 1d array of dimension N
+
     *y* : 2d array of dimension MxN, OR any number 1d arrays each of dimension
           1xN. The data is assumed to be unstacked. Each of the following
-          calls is legal:
+          calls is legal::
 
-          stackplot(x, y)               # where y is MxN
-          staclplot(x, y1, y2, y3, y4)  # where y1, y2, y3, y4, are all 1xNm
+            stackplot(x, y)               # where y is MxN
+            stackplot(x, y1, y2, y3, y4)  # where y1, y2, y3, y4, are all 1xNm
 
     Keyword arguments:
+
     *colors* : A list or tuple of colors. These will be cycled through and
                used to colour the stacked areas.
                All other keyword arguments are passed to
                :func:`~matplotlib.Axes.fill_between`
 
-    Returns
-    -------
-    *r* : A list of :class:`~matplotlib.collections.PolyCollection`, one for
-          each element in the stacked area plot.
+    Returns *r* : A list of
+    :class:`~matplotlib.collections.PolyCollection`, one for each
+    element in the stacked area plot.
     """
 
     if len(args) == 1:
@@ -52,9 +50,11 @@ def stackplot(axes, x, *args, **kwargs):
     r = []
 
     # Color between x = 0 and the first array.
-    r.append(axes.fill_between(x, 0, y_stack[0,:], facecolor=axes._get_lines.color_cycle.next(), **kwargs))
+    r.append(axes.fill_between(x, 0, y_stack[0, :],
+             facecolor=axes._get_lines.color_cycle.next(), **kwargs))
 
     # Color between array i-1 and array i
-    for i in xrange(len(y)-1):
-        r.append(axes.fill_between(x, y_stack[i,:], y_stack[i+1,:], facecolor=axes._get_lines.color_cycle.next(), **kwargs))
+    for i in xrange(len(y) - 1):
+        r.append(axes.fill_between(x, y_stack[i, :], y_stack[i + 1, :],
+                 facecolor=axes._get_lines.color_cycle.next(), **kwargs))
     return r

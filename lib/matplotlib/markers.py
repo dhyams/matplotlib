@@ -49,7 +49,7 @@ will create a custom, regular symbol.
       =====   =============================================
 
     *angle*:
-      the angle of rotation of the symbol
+      the angle of rotation of the symbol, in degrees
 
 For backward compatibility, the form (*verts*, 0) is also accepted,
 but it is equivalent to just *verts* for giving a raw set of vertices
@@ -112,6 +112,16 @@ that define the shape.
         self._fillstyle = fillstyle
         self.set_marker(marker)
         self.set_fillstyle(fillstyle)
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d.pop('_marker_function')
+        return d
+
+    def __setstate__(self, statedict):
+        self.__dict__ = statedict
+        self.set_marker(self._marker)
+        self._recache()
 
     def _recache(self):
         self._path = Path(np.empty((0,2)))
@@ -266,7 +276,7 @@ that define the shape.
 
     def _set_circle(self, reduction = 1.0):
         self._transform = Affine2D().scale(0.5 * reduction)
-        self._snap_threshold = 3.0
+        self._snap_threshold = 6.0
         fs = self.get_fillstyle()
         if not self._half_fill():
             self._path = Path.unit_circle()

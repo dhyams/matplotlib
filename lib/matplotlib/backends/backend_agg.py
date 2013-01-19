@@ -158,7 +158,7 @@ class RendererAgg(RendererBase):
         y = int(y) - oy
         self._renderer.draw_text_image(font_image, x, y + 1, angle, gc)
 
-    def draw_text(self, gc, x, y, s, prop, angle, ismath):
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         """
         Render the text
         """
@@ -215,7 +215,7 @@ class RendererAgg(RendererBase):
         return w, h, d
 
 
-    def draw_tex(self, gc, x, y, s, prop, angle):
+    def draw_tex(self, gc, x, y, s, prop, angle, ismath='TeX!', mtext=None):
         # todo, handle props, angle, origins
         size = prop.get_size_in_points()
 
@@ -385,7 +385,6 @@ class RendererAgg(RendererBase):
                                       image)
 
 
-
 def new_figure_manager(num, *args, **kwargs):
     """
     Create a new figure manager instance
@@ -396,7 +395,14 @@ def new_figure_manager(num, *args, **kwargs):
 
     FigureClass = kwargs.pop('FigureClass', Figure)
     thisFig = FigureClass(*args, **kwargs)
-    canvas = FigureCanvasAgg(thisFig)
+    return new_figure_manager_given_figure(num, thisFig)
+
+
+def new_figure_manager_given_figure(num, figure):
+    """
+    Create a new figure manager instance for the given figure.
+    """
+    canvas = FigureCanvasAgg(figure)
     manager = FigureManagerBase(canvas, num)
     return manager
 

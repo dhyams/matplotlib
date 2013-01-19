@@ -138,7 +138,7 @@ class RendererGDK(RendererBase):
         im.flipud_out()
 
 
-    def draw_text(self, gc, x, y, s, prop, angle, ismath):
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         x, y = int(x), int(y)
 
         if x < 0 or y < 0: # window has shrunk and text is off the edge
@@ -422,11 +422,15 @@ def new_figure_manager(num, *args, **kwargs):
     """
     FigureClass = kwargs.pop('FigureClass', Figure)
     thisFig = FigureClass(*args, **kwargs)
-    canvas  = FigureCanvasGDK(thisFig)
+    return new_figure_manager_given_figure(num, thisFig)
+
+
+def new_figure_manager_given_figure(num, figure):
+    """
+    Create a new figure manager instance for the given figure.
+    """
+    canvas  = FigureCanvasGDK(figure)
     manager = FigureManagerBase(canvas, num)
-    # equals:
-    #manager = FigureManagerBase (FigureCanvasGDK (Figure(*args, **kwargs),
-    #                             num)
     return manager
 
 

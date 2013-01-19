@@ -1,5 +1,5 @@
 """
-This is an object-orient plotting library.
+This is an object-oriented plotting library.
 
 A procedural interface is provided by the companion pyplot module,
 which may be imported directly, e.g::
@@ -90,8 +90,8 @@ The base matplotlib namespace includes:
         for the first time.  In particular, it must be called
         **before** importing pylab (if pylab is imported).
 
-matplotlib was initially written by John D. Hunter (jdh2358 at
-gmail.com) and is now developed and maintained by a host of others.
+matplotlib was initially written by John D. Hunter (1968-2012) and is now
+developed and maintained by a host of others.
 
 Occasionally the internal documentation (python docstrings) will refer
 to MATLAB&reg;, a registered trademark of The MathWorks, Inc.
@@ -99,7 +99,7 @@ to MATLAB&reg;, a registered trademark of The MathWorks, Inc.
 """
 from __future__ import print_function
 
-__version__  = '1.2.x'
+__version__  = '1.3.x'
 __version__numpy__ = '1.4' # minimum required numpy version
 
 import os, re, shutil, subprocess, sys, warnings
@@ -121,6 +121,20 @@ if 0:
 
 if not hasattr(sys, 'argv'):  # for modpython
     sys.argv = ['modpython']
+
+
+class MatplotlibDeprecationWarning(UserWarning):
+    """
+    A class for issuing deprecation warnings for Matplotlib users.
+
+    In light of the fact that Python builtin DeprecationWarnings are ignored
+    by default as of Python 2.7 (see link below), this class was put in to
+    allow for the signaling of deprecation, but via UserWarnings which are not
+    ignored by default.
+
+    http://docs.python.org/dev/whatsnew/2.7.html#the-future-for-python-2-x
+    """
+    pass
 
 """
 Manage user customizations through a rc file.
@@ -178,7 +192,6 @@ if not found_version >= expected_version:
             __version__numpy__, numpy.__version__))
 del version
 
-
 def is_string_like(obj):
     if hasattr(obj, 'shape'): return 0
     try: obj + ''
@@ -215,8 +228,14 @@ class Verbose:
     _commandLineVerbose = None
 
     for arg in sys.argv[1:]:
-        if not arg.startswith('--verbose-'): continue
-        _commandLineVerbose = arg[10:]
+        if not arg.startswith('--verbose-'):
+            continue
+        level_str = arg[10:]
+        # If it doesn't match one of ours, then don't even
+        # bother noting it, we are just a 3rd-party library
+        # to somebody else's script.
+        if level_str in levels:
+            _commandLineVerbose = level_str
 
     def __init__(self):
         self.set_level('silent')
@@ -228,8 +247,10 @@ class Verbose:
         if self._commandLineVerbose is not None:
             level = self._commandLineVerbose
         if level not in self.levels:
-            raise ValueError('Illegal verbose string "%s".  Legal values are %s'%(level, self.levels))
-        self.level = level
+            warnings.warn('matplotlib: unrecognized --verbose-* string "%s".'
+                          ' Legal values are %s' % (level, self.levels))
+        else:
+            self.level = level
 
     def set_fileo(self, fname):
         std = {
@@ -467,15 +488,33 @@ def _get_home():
         raise RuntimeError('please define environment variable $HOME')
 
 
+def _create_tmp_config_dir():
+    """
+    If the config directory can not be created, create a temporary
+    directory.
+    """
+    import getpass
+    import tempfile
+
+    tempdir = os.path.join(
+        tempfile.gettempdir(), 'matplotlib-%s' % getpass.getuser())
+    os.environ['MPLCONFIGDIR'] = tempdir
+
+    return tempdir
+
 
 get_home = verbose.wrap('$HOME=%s', _get_home, always=False)
 
 def _get_configdir():
     """
-    Return the string representing the configuration dir.
+    Return the string representing the configuration directory.
 
-    default is HOME/.matplotlib.  you can override this with the
-    MPLCONFIGDIR environment variable
+    Default is HOME/.matplotlib.  You can override this with the
+    MPLCONFIGDIR environment variable.  If the default is not
+    writable, and MPLCONFIGDIR is not set, then
+    tempfile.gettempdir() is used to provide a directory in
+    which a matplotlib subdirectory is created as the configuration
+    directory.
     """
 
     configdir = os.environ.get('MPLCONFIGDIR')
@@ -483,7 +522,7 @@ def _get_configdir():
         if not os.path.exists(configdir):
             os.makedirs(configdir)
         if not _is_writable_dir(configdir):
-            raise RuntimeError('Could not write to MPLCONFIGDIR="%s"'%configdir)
+            return _create_tmp_config_dir()
         return configdir
 
     h = get_home()
@@ -491,10 +530,10 @@ def _get_configdir():
 
     if os.path.exists(p):
         if not _is_writable_dir(p):
-            raise RuntimeError("'%s' is not a writable dir; you must set %s/.matplotlib to be a writable dir.  You can also set environment variable MPLCONFIGDIR to any writable directory where you want matplotlib data stored "% (h, h))
+            return _create_tmp_config_dir()
     else:
         if not _is_writable_dir(h):
-            raise RuntimeError("Failed to create %s/.matplotlib; consider setting MPLCONFIGDIR to a writable directory for matplotlib configuration data"%h)
+            return _create_tmp_config_dir()
         from matplotlib.cbook import mkdirs
         mkdirs(p)
 
@@ -716,6 +755,12 @@ def rc_params(fail_on_error=False):
         warnings.warn(message)
         return ret
 
+    return rc_params_from_file(fname, fail_on_error)
+
+
+def rc_params_from_file(fname, fail_on_error=False):
+    """Load and return params from fname."""
+
     cnt = 0
     rc_temp = {}
     with open(fname) as fd:
@@ -892,11 +937,57 @@ def rc(group, **kwargs):
 
 def rcdefaults():
     """
-    Restore the default rc params - these are not the params loaded by
+    Restore the default rc params.  These are not the params loaded by
     the rc file, but mpl's internal params.  See rc_file_defaults for
     reloading the default params from the rc file
     """
     rcParams.update(rcParamsDefault)
+
+
+def rc_file(fname):
+    """
+    Update rc params from file.
+    """
+    rcParams.update(rc_params_from_file(fname))
+
+
+class rc_context(object):
+    """
+    Return a context manager for managing rc settings.
+
+    This allows one to do::
+
+    >>> with mpl.rc_context(fname='screen.rc'):
+    >>>     plt.plot(x, a)
+    >>>     with mpl.rc_context(fname='print.rc'):
+    >>>         plt.plot(x, b)
+    >>>     plt.plot(x, c)
+
+    The 'a' vs 'x' and 'c' vs 'x' plots would have settings from
+    'screen.rc', while the 'b' vs 'x' plot would have settings from
+    'print.rc'.
+
+    A dictionary can also be passed to the context manager::
+
+    >>> with mpl.rc_context(rc={'text.usetex': True}, fname='screen.rc'):
+    >>>     plt.plot(x, a)
+
+    The 'rc' dictionary takes precedence over the settings loaded from
+    'fname'.  Passing a dictionary only is also valid.
+    """
+
+    def __init__(self, rc=None, fname=None):
+        self.rcdict = rc
+        self.fname = fname
+    def __enter__(self):
+        self._rcparams = rcParams.copy()
+        if self.fname:
+            rc_file(self.fname)
+        if self.rcdict:
+            rcParams.update(self.rcdict)
+    def __exit__(self, type, value, tb):
+        rcParams.update(self._rcparams)
+
 
 def rc_file_defaults():
     """
@@ -936,9 +1027,18 @@ def use(arg, warn=True, force=False):
     :func:`matplotlib.get_backend`.
 
     """
+    # Lets determine the proper backend name first
+    if arg.startswith('module://'):
+        name = arg
+    else:
+        # Lowercase only non-module backend names (modules are case-sensitive)
+        arg = arg.lower()
+        name = validate_backend(arg)
+
     # Check if we've already set up a backend
     if 'matplotlib.backends' in sys.modules:
-        if warn:
+        # Warn only if called with a different name
+        if (rcParams['backend'] != name) and warn:
             warnings.warn(_use_error_msg)
 
         # Unless we've been told to force it, just return
@@ -948,14 +1048,7 @@ def use(arg, warn=True, force=False):
     else:
         need_reload = False
 
-    # Set-up the proper backend name
-    if arg.startswith('module://'):
-        name = arg
-    else:
-        # Lowercase only non-module backend names (modules are case-sensitive)
-        arg = arg.lower()
-        name = validate_backend(arg)
-
+    # Store the backend name
     rcParams['backend'] = name
 
     # If needed we reload here because a lot of setup code is triggered on
@@ -1003,26 +1096,38 @@ for s in sys.argv[1:]:
 
 default_test_modules = [
     'matplotlib.tests.test_agg',
+    'matplotlib.tests.test_artist',
     'matplotlib.tests.test_axes',
     'matplotlib.tests.test_backend_svg',
+    'matplotlib.tests.test_backend_pgf',
     'matplotlib.tests.test_basic',
+    'matplotlib.tests.test_bbox_tight',
     'matplotlib.tests.test_cbook',
     'matplotlib.tests.test_colorbar',
+    'matplotlib.tests.test_colors',
+    'matplotlib.tests.test_contour',
     'matplotlib.tests.test_dates',
     'matplotlib.tests.test_delaunay',
     'matplotlib.tests.test_figure',
     'matplotlib.tests.test_image',
     'matplotlib.tests.test_legend',
+    'matplotlib.tests.test_lines',
     'matplotlib.tests.test_mathtext',
     'matplotlib.tests.test_mlab',
     'matplotlib.tests.test_patches',
+    'matplotlib.tests.test_pickle',
+    'matplotlib.tests.test_rcparams',
+    'matplotlib.tests.test_scale',
     'matplotlib.tests.test_simplification',
     'matplotlib.tests.test_spines',
+    'matplotlib.tests.test_streamplot',
+    'matplotlib.tests.test_subplots',
     'matplotlib.tests.test_text',
     'matplotlib.tests.test_ticker',
     'matplotlib.tests.test_tightlayout',
-    'matplotlib.tests.test_triangulation'
+    'matplotlib.tests.test_triangulation',
     'matplotlib.tests.test_transforms',
+    'matplotlib.tests.test_arrow_patches',
     ]
 
 
