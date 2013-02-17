@@ -3397,14 +3397,24 @@ class ArrowStyle(_Style):
 
             x0, y0, x1, y1, x2, y2 = self.ensure_quadratic_bezier(path)
 
+            from bezier import NonIntersectingPathException
+
             # divide the path into a head and a tail
             head_length  = self.head_length * mutation_size
             in_f = inside_circle(x2, y2, head_length)
             arrow_path = [(x0, y0), (x1, y1), (x2, y2)]
-            arrow_out, arrow_in = \
+            try:
+              arrow_out, arrow_in = \
                        split_bezier_intersecting_with_closedpath(arrow_path,
                                                                  in_f,
                                                                  tolerence=0.01)
+            except NonIntersectingPathException:
+               # if this happens, make a straight line of the head_length long. 
+               dx, dy = x2 - x1, y2 - y1 
+               ff = head_length/(dx*dx+dy*dy)**.5 
+               x0, y0 = x2 - ff*dx, y2 - ff*dy 
+               arrow_in  = [(x0, y0), (x1, y1), (x2, y2)] 
+               arrow_out = [(x0, y0), (x0, y0), (x0, y0)]
 
             # head
             head_width = self.head_width * mutation_size
