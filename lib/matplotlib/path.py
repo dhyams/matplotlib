@@ -14,6 +14,8 @@ from matplotlib._path import point_in_path, get_path_extents, \
     cleanup_path
 from matplotlib.cbook import simple_linear_interpolation, maxdict
 from matplotlib import rcParams
+from matplotlib._path import point_on_path
+
 
 class Path(object):
     """
@@ -282,7 +284,10 @@ class Path(object):
         """
         if transform is not None:
             transform = transform.frozen()
-        result = point_in_path(point[0], point[1], radius, self, transform)
+        try:
+           result = point_on_path(point[0], point[1], radius, self, transform)
+        except:
+           result = point_in_path(point[0], point[1], radius, self, transform)
         return result
 
     def contains_path(self, path, transform=None):
