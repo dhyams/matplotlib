@@ -22,6 +22,8 @@ from numpy import ma
 from matplotlib import _path
 from matplotlib.cbook import simple_linear_interpolation, maxdict
 from matplotlib import rcParams
+from matplotlib._path import point_on_path
+
 
 
 class Path(object):
@@ -469,7 +471,10 @@ class Path(object):
         """
         if transform is not None:
             transform = transform.frozen()
-        result = _path.point_in_path(point[0], point[1], radius, self, transform)
+        try:
+           result = _path.point_on_path(point[0], point[1], radius, self, transform)
+        except:
+           result = _path.point_in_path(point[0], point[1], radius, self, transform)
         return result
 
     def contains_points(self, points, transform=None, radius=0.0):
@@ -485,7 +490,10 @@ class Path(object):
         """
         if transform is not None:
             transform = transform.frozen()
-        result = _path.points_in_path(points, radius, self, transform)
+        try:
+           result = _path.points_on_path(points, radius, self, transform)
+        except:
+           result = _path.points_in_path(points, radius, self, transform)
         return result
 
     def contains_path(self, path, transform=None):
