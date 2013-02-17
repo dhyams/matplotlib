@@ -2653,6 +2653,9 @@ class NavigationToolbar2(object):
         self.release(event)
         self.draw()
 
+        if hasattr(self,'OnMouseUpDuringPan'):   
+            self.OnMouseUpDuringPan()   
+
     def drag_pan(self, event):
         'the drag callback in pan/zoom mode'
 
