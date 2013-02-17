@@ -2698,6 +2698,8 @@ class NavigationToolbar2(object):
             # ignore singular clicks - 5 pixels is a threshold
             if abs(x-lastx)<5 or abs(y-lasty)<5:
                 self._xypress = None
+                self._button_pressed = None 
+                self._zoom_mode = None 
                 self.release(event)
                 self.draw()
                 return
