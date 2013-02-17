@@ -1128,9 +1128,9 @@ The current aspect ratio will be kept."""
     def print_bmp(self, filename, *args, **kwargs):
         return self._print_image(filename, wx.BITMAP_TYPE_BMP, *args, **kwargs)
 
-    def print_jpeg(self, filename, *args, **kwargs):
-        return self._print_image(filename, wx.BITMAP_TYPE_JPEG, *args, **kwargs)
-    print_jpg = print_jpeg
+    #def print_jpeg(self, filename, *args, **kwargs):
+    #    return self._print_image(filename, wx.BITMAP_TYPE_JPEG, *args, **kwargs)
+    #print_jpg = print_jpeg
 
     def print_pcx(self, filename, *args, **kwargs):
         return self._print_image(filename, wx.BITMAP_TYPE_PCX, *args, **kwargs)
@@ -1138,9 +1138,9 @@ The current aspect ratio will be kept."""
     def print_png(self, filename, *args, **kwargs):
         return self._print_image(filename, wx.BITMAP_TYPE_PNG, *args, **kwargs)
 
-    def print_tiff(self, filename, *args, **kwargs):
-        return self._print_image(filename, wx.BITMAP_TYPE_TIF, *args, **kwargs)
-    print_tif = print_tiff
+    #def print_tiff(self, filename, *args, **kwargs):
+    #    return self._print_image(filename, wx.BITMAP_TYPE_TIF, *args, **kwargs)
+    #print_tif = print_tiff
 
     def print_xpm(self, filename, *args, **kwargs):
         return self._print_image(filename, wx.BITMAP_TYPE_XPM, *args, **kwargs)
@@ -1278,7 +1278,7 @@ The current aspect ratio will be kept."""
         x = evt.GetX()
         y = self.figure.bbox.height - evt.GetY()
         evt.Skip()
-        self.CaptureMouse()
+        if not self.HasCapture(): self.CaptureMouse()
         FigureCanvasBase.button_press_event(self, x, y, 3, dblclick=True,guiEvent=evt)
 
     def _onRightButtonUp(self, evt):
@@ -1302,7 +1302,7 @@ The current aspect ratio will be kept."""
         x = evt.GetX()
         y = self.figure.bbox.height - evt.GetY()
         evt.Skip()
-        self.CaptureMouse()
+        if not self.HasCapture(): self.CaptureMouse()
         FigureCanvasBase.button_press_event(self, x, y, 1, dblclick=True, guiEvent=evt)
 
     def _onLeftButtonUp(self, evt):
@@ -1328,7 +1328,7 @@ The current aspect ratio will be kept."""
         x = evt.GetX()
         y = self.figure.bbox.height - evt.GetY()
         evt.Skip()
-        self.CaptureMouse()
+        if not self.HasCapture(): self.CaptureMouse()
         FigureCanvasBase.button_press_event(self, x, y, 2, dblclick=True, guiEvent=evt)
 
     def _onMiddleButtonUp(self, evt):

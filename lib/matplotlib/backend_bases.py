@@ -1845,6 +1845,9 @@ class FigureCanvasBase(object):
             image = Image.frombuffer('RGBA', size, buf, 'raw', 'RGBA', 0, 1)
             options = cbook.restrict_dict(kwargs, ['quality', 'optimize',
                                                    'progressive'])
+
+            if 'quality' not in options: options['quality'] = 95
+
             return image.save(filename_or_obj, **options)
         print_jpeg = print_jpg
 
