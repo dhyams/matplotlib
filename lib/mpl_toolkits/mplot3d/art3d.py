@@ -318,9 +318,9 @@ class Patch3DCollection(PatchCollection):
         xs, ys, zs = self._offsets3d
         vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs, renderer.M)
         #FIXME: mpl allows us no way to unset the collection alpha value
-        self._alpha = None
-        self.set_facecolors(zalpha(self._facecolor3d, vzs))
-        self.set_edgecolors(zalpha(self._edgecolor3d, vzs))
+        #self._alpha = None
+        self.set_facecolors(zalpha(self,self._facecolor3d, vzs))
+        self.set_edgecolors(zalpha(self,self._edgecolor3d, vzs))
         PatchCollection.set_offsets(self, zip(vxs, vys))
 
         if vzs.size > 0 :
@@ -577,7 +577,7 @@ def get_colors(c, num):
     else:
         raise ValueError, 'unknown color format %s' % c
 
-def zalpha(colors, zs):
+def zalpha(artist, colors, zs):
     """Modify the alphas of the color list according to depth"""
     # FIXME: This only works well if the points for *zs* are well-spaced
     #        in all three dimensions. Otherwise, at certain orientations,
