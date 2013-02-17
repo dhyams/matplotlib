@@ -588,12 +588,12 @@ cbook.simple_linear_interpolation on the data before passing to matplotlib.""")
     def start_pan(self, x, y, button):
         angle = np.deg2rad(self._r_label_position.to_values()[4])
         mode = ''
-        if button == 1:
+        if button == 3:
             epsilon = np.pi / 45.0
             t, r = self.transData.inverted().transform_point((x, y))
             if t >= angle - epsilon and t <= angle + epsilon:
                 mode = 'drag_r_labels'
-        elif button == 3:
+        elif button == 1:
             mode = 'zoom'
 
         self._pan_start = cbook.Bunch(
