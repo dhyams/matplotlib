@@ -122,8 +122,10 @@ class Patch(artist.Artist):
         # algebraic solution to hit-testing should override this
         # method.
         if callable(self._contains): return self._contains(self,mouseevent)
-        if radius is None:
-            radius = self.get_linewidth()
+        if radius is None: 
+            radius = self.get_picker()
+            if type(radius) != float:
+               radius = self.get_linewidth()
         inside = self.get_path().contains_point(
             (mouseevent.x, mouseevent.y), self.get_transform(), radius)
         return inside, {}
