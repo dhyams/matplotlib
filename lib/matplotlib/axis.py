@@ -977,8 +977,14 @@ class Axis(artist.Artist):
             interval_expanded = interval[1],interval[0]
         
         if hasattr(self,'_get_pixel_distance'):
-            ds1 = self._get_pixel_distance(interval_expanded[0],-1)/2.0
-            ds2 = self._get_pixel_distance(interval_expanded[1],+1)/2.0
+            try: 
+               ds1 = self._get_pixel_distance(interval_expanded[0],-1)/2.0
+            except:
+               ds1 = 0.0
+            try:
+               ds2 = self._get_pixel_distance(interval_expanded[1],+1)/2.0
+            except: 
+               ds2 = 0.0
             interval_expanded = (interval[0]-ds1,interval[1]+ds2)
           
         # PATCH END
@@ -1609,8 +1615,8 @@ class XAxis(Axis):
         # first figure out the pixel location of the "where" point.  We use 1e-10 for the
         # y point, so that we remain compatible with log axes.
         #
-        # I THINK this will work too for polar axes, but I'm not 100% sure.
-        #
+        if self.axes.name == 'polar': return 0.0
+
         trans = self.axes.transData     # transformation from data coords to display coords
         transinv = trans.inverted()     # transformation from display coords to data coords
         pix  = trans.transform_point((where,1e-10))
@@ -1887,8 +1893,6 @@ class YAxis(Axis):
         
         # first figure out the pixel location of the "where" point.  We use 1e-10 for the
         # x point, so that we remain compatible with log axes.
-        #
-        # I THINK this will work too for polar axes, but I'm not 100% sure.
         #
         trans = self.axes.transData     # transformation from data coords to display coords
         transinv = trans.inverted()     # transformation from display coords to data coords
