@@ -144,7 +144,8 @@ class RendererAgg(RendererBase):
 
         x = int(x) + ox
         y = int(y) - oy
-        self._renderer.draw_text_image(font_image, x, y + 1, angle, gc)
+        if type(int(x)) == int and type(int(y)) == int:
+           self._renderer.draw_text_image(font_image, x, y + 1, angle, gc)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath):
         """
@@ -168,7 +169,8 @@ class RendererAgg(RendererBase):
 
         #print x, y, int(x), int(y), s
 
-        self._renderer.draw_text_image(font.get_image(), int(x), int(y) + 1, angle, gc)
+        if type(int(x)) == int and type(int(y)) == int:
+           self._renderer.draw_text_image(font.get_image(), int(x), int(y) + 1, angle, gc)
 
     def get_text_width_height_descent(self, s, prop, ismath):
         """
