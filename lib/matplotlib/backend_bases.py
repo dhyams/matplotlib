@@ -2795,6 +2795,9 @@ class NavigationToolbar2(object):
 
         self._zoom_mode = None
 
+        if hasattr(self,'OnMouseUpDuringZoom'):
+            self.OnMouseUpDuringZoom()
+
         self.push_current()
         self.release(event)
 
