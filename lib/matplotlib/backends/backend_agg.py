@@ -157,7 +157,8 @@ class RendererAgg(RendererBase):
         yd = descent * np.cos(np.deg2rad(angle))
         x = np.round(x + ox + xd)
         y = np.round(y - oy + yd)
-        self._renderer.draw_text_image(font_image, x, y + 1, angle, gc)
+        if type(int(x)) == int and type(int(y)) == int:
+           self._renderer.draw_text_image(font_image, int(x), int(y) + 1, angle, gc)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         """
@@ -184,8 +185,11 @@ class RendererAgg(RendererBase):
         yd = d * np.cos(np.deg2rad(angle))
 
         #print x, y, int(x), int(y), s
-        self._renderer.draw_text_image(
-            font.get_image(), np.round(x - xd), np.round(y + yd) + 1, angle, gc)
+        x = np.round(x - xd)
+        y = np.round(y + yd)
+        if type(int(x)) == int and type(int(y)) == int:
+           self._renderer.draw_text_image(
+               font.get_image(), int(x), int(y) + 1, angle, gc)
 
     def get_text_width_height_descent(self, s, prop, ismath):
         """
@@ -238,7 +242,8 @@ class RendererAgg(RendererBase):
         x = np.round(x + xd)
         y = np.round(y + yd)
 
-        self._renderer.draw_text_image(Z, x, y, angle, gc)
+        if type(int(x)) == int and type(int(y)) == int:
+           self._renderer.draw_text_image(Z, int(x), int(y), angle, gc)
 
     def get_canvas_width_height(self):
         'return the canvas width and height in display coords'
