@@ -1149,7 +1149,7 @@ class ContourSet(cm.ScalarMappable, ContourLabeler):
         if self.filled:
             return lev
         # For line contours, drop levels outside the data range.
-        return lev[(lev > zmin) & (lev < zmax)]
+        return lev[(lev >= zmin) & (lev <= zmax)]
 
     def _contour_level_args(self, z, args):
         """
