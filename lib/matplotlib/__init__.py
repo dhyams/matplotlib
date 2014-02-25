@@ -113,10 +113,11 @@ except ImportError:
 def compare_versions(a, b):
     "return True if a is greater than or equal to b"
     if a:
-        a = distutils.version.LooseVersion(a)
-        b = distutils.version.LooseVersion(b)
-        if a>=b: return True
-        else: return False
+        return True
+        #a = distutils.version.LooseVersion(a)
+        #b = distutils.version.LooseVersion(b)
+        #if a>=b: return True
+        #else: return False
     else: return False
 
 try:
